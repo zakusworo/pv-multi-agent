@@ -127,13 +127,13 @@ streamlit run gui.py
 ### Cloud LLM (OpenRouter)
 ```bash
 export OPENROUTER_API_KEY=sk-or-...
-python pv_agents_cloud.py --provider openrouter --model meta-llama/llama-3.1-8b-instruct
+python pv_agents_cloud.py --provider openrouter --model qwen/qwen-2.5-72b-instruct
 ```
 
 ### Local LLM (Ollama)
 ```bash
-ollama pull llama3.2:1b
-python pv_agents_cloud.py --provider ollama --model llama3.2:1b
+ollama pull qwen2.5:3b
+python pv_agents_cloud.py --provider ollama --model qwen2.5:3b
 ```
 
 ---
