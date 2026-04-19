@@ -103,13 +103,13 @@ streamlit run gui.py
 ollama serve
 
 # Pull a model (if not already downloaded)
-ollama pull gemma2:9b
+ollama pull gemma4:e4b
 
 # Run the multi-agent system
-python pv_agents_cloud.py --provider ollama --model gemma2:9b
+python pv_agents_cloud.py --provider ollama --model gemma4:e4b
 ```
 
-### Option 3: CLI with Cloud LLM (OpenRouter)
+### Option 3: CLI with Cloud LLM (Ollama Cloud)
 
 ```bash
 # Set your API key
@@ -118,7 +118,7 @@ export OPENROUTER_API_KEY=your_key_here
 # Run with cloud model
 python pv_agents_cloud.py \
   --provider openrouter \
-  --model qwen/qwen-3.6-plus \
+  --model qwen3.6:latest \
   --latitude -6.9147 \
   --longitude 107.6098 \
   --capacity 10.0
@@ -169,7 +169,7 @@ The GUI includes pre-configured locations:
 ```
 ======================================================================
   🤖 MULTI-AGENT PV SYSTEM CALCULATOR
-  ☁️  LLM Provider: openrouter | Model: qwen/qwen-3.6-plus
+  ☁️  LLM Provider: openrouter | Model: qwen3.6:latest
 ======================================================================
 
 [GeolocationAgent] Analyzing location: -6.9147°, 107.6098°
@@ -267,12 +267,12 @@ Unified provider interface supports multiple backends:
 from pv_agents_cloud import LLMProvider
 
 # Local Ollama
-llm = LLMProvider(provider="ollama", model="gemma2:9b")
+llm = LLMProvider(provider="ollama", model="gemma4:e4b")
 
-# OpenRouter (cloud)
+# Ollama Cloud
 llm = LLMProvider(
     provider="openrouter",
-    model="qwen/qwen-3.6-plus",
+    model="qwen3.6:latest",
     api_key="sk-..."
 )
 

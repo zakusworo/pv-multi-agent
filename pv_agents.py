@@ -71,7 +71,7 @@ class SimulationResult:
 class PVAgent:
     """Base class for PV system agents"""
     
-    def __init__(self, name: str, model: str = "gemma2:9b"):
+    def __init__(self, name: str, model: str = "gemma4:e4b"):
         self.name = name
         self.model = model
         self.memory = []
@@ -765,7 +765,7 @@ _This section represents the collective reasoning of all agents._
 class PVSystemCoordinator:
     """Main coordinator that orchestrates all agents"""
     
-    def __init__(self, model: str = "gemma2:9b"):
+    def __init__(self, model: str = "gemma4:e4b"):
         self.model = model
         self.geo_agent = GeolocationAgent(model)
         self.weather_agent = WeatherAgent(model)

@@ -124,21 +124,21 @@ streamlit run gui.py
 # Opens at http://localhost:8501
 ```
 
-### Cloud LLM (OpenRouter)
+### Cloud LLM (Ollama Cloud)
 ```bash
 export OPENROUTER_API_KEY=sk-or-...
-python pv_agents_cloud.py --provider openrouter --model qwen/qwen-3.6-plus
+python pv_agents_cloud.py --provider openrouter --model qwen3.6:latest
 ```
 
-**Note:** `qwen/qwen-3.6-plus` is only available on OpenRouter (cloud). For local Ollama, use `gemma2:9b` or `qwen2.5:7b`.
+**Note:** `qwen3.6:latest` is available on Ollama Cloud/OpenRouter. For local Ollama, use `gemma4:e4b` or `qwen2.5:7b`.
 
 ### Local LLM (Ollama)
 ```bash
-ollama pull gemma2:9b
-python pv_agents_cloud.py --provider ollama --model gemma2:9b
+ollama pull gemma4:e4b
+python pv_agents_cloud.py --provider ollama --model gemma4:e4b
 ```
 
-**Note:** Ollama uses simplified model names. The cloud equivalent of `gemma2:9b` is `google/gemma-2-9b-it` on OpenRouter.
+**Note:** Ollama uses simplified model names. The cloud equivalent on Ollama Cloud is `qwen3.6:latest`.
 
 ---
 
