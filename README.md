@@ -7,7 +7,7 @@ A multi-agent AI system for photovoltaic (PV) solar system design and energy pro
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![PVlib](https://img.shields.io/badge/pvlib-0.15.0-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19650332.svg)](https://doi.org/10.5281/zenodo.19650332)
+[![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.19650332-blue)](https://zenodo.org/records/19650332)
 
 ---
 
