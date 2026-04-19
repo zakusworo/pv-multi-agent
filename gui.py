@@ -23,6 +23,13 @@ from pv_module_database import (
     module_to_dict
 )
 
+# Dynamic module fetcher (fetches from live sources)
+try:
+    from module_fetcher import fetch_all_modules, get_module_statistics
+    DYNAMIC_FETCHER_AVAILABLE = True
+except ImportError:
+    DYNAMIC_FETCHER_AVAILABLE = False
+
 # Page config
 st.set_page_config(
     page_title="PV Multi-Agent Calculator",
@@ -273,6 +280,45 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # Check for dynamic module database
+    if DYNAMIC_FETCHER_AVAILABLE:
+        with st.sidebar:
+            st.info("🔄 Dynamic module database enabled")
+            
+            # Auto-fetch on first load
+            if 'modules_loaded' not in st.session_state:
+                with st.spinner("Fetching updated PV module database..."):
+                    try:
+                        modules = fetch_all_modules()
+                        stats = get_module_statistics(modules)
+                        st.session_state.modules_loaded = True
+                        st.session_state.dynamic_modules = modules
+                        st.session_state.module_stats = stats
+                        st.success(f"✓ {stats['total_modules']} modules loaded")
+                        st.caption(f"Source: {stats['source']} | Updated: {stats['last_updated'][:10]}")
+                    except Exception as e:
+                        st.warning(f"Using fallback database: {e}")
+                        st.session_state.modules_loaded = True
+                        st.session_state.dynamic_modules = None
+            else:
+                stats = st.session_state.get('module_stats', {})
+                if stats:
+                    st.success(f"✓ {stats['total_modules']} modules loaded")
+                    st.caption(f"Source: {stats.get('source', 'N/A')}")
+                
+                # Refresh button
+                if st.button("🔄 Refresh Module Database"):
+                    with st.spinner("Fetching latest modules..."):
+                        try:
+                            modules = fetch_all_modules(force_refresh=True)
+                            stats = get_module_statistics(modules)
+                            st.session_state.dynamic_modules = modules
+                            st.session_state.module_stats = stats
+                            st.success(f"✓ Updated: {stats['total_modules']} modules")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Refresh failed: {e}")
+    
     # Sidebar - Location Settings
     with st.sidebar:
         st.header("📍 Location")
@@ -325,48 +371,109 @@ def main():
         use_database = st.checkbox("Select from module database", value=True)
         
         if use_database:
-            # Get manufacturers
-            manufacturers = get_manufacturers()
+            # Check if we have dynamic modules
+            dynamic_modules = st.session_state.get('dynamic_modules', None)
             
-            # Manufacturer selection
-            selected_manufacturer = st.selectbox(
-                "Manufacturer",
-                manufacturers,
-                index=manufacturers.index("LONGi Solar") if "LONGi Solar" in manufacturers else 0
-            )
-            
-            # Get models for selected manufacturer
-            models = get_module_names_by_manufacturer(selected_manufacturer)
-            
-            # Model selection
-            selected_model = st.selectbox(
-                "Model",
-                models
-            )
-            
-            # Get module specs
-            try:
-                selected_module = get_module_by_name(selected_manufacturer, selected_model)
-                module_specs = module_to_dict(selected_module)
+            if dynamic_modules and len(dynamic_modules) > 0:
+                # Use dynamic modules
+                st.caption(f"📡 Live database: {len(dynamic_modules)} modules")
                 
-                # Display module info
-                st.info(f"""
-                **{selected_manufacturer} {selected_model}**
-                - Power: {selected_module.pdc0}W
-                - Efficiency: {selected_module.efficiency}%
-                - Technology: {selected_module.technology}
-                - Warranty: {selected_module.warranty_years} years
-                """)
+                # Get unique manufacturers from dynamic modules
+                manufacturers = sorted(list(set(m['manufacturer'] for m in dynamic_modules)))
                 
-                module_type = selected_manufacturer.lower().replace(' ', '_') + '_' + selected_model.lower().replace(' ', '_')
-                module_power = selected_module.pdc0
-                module_efficiency = selected_module.efficiency
+                # Manufacturer selection
+                selected_manufacturer = st.selectbox(
+                    "Manufacturer",
+                    manufacturers,
+                    index=min(5, len(manufacturers) - 1)  # Default to 6th manufacturer
+                )
                 
-            except Exception as e:
-                st.error(f"Error loading module: {e}")
-                module_type = "standard_mono"
-                module_power = 450
-                module_efficiency = 21.0
+                # Get models for selected manufacturer
+                models = [m['model_name'] for m in dynamic_modules 
+                         if m['manufacturer'] == selected_manufacturer]
+                models = sorted(list(set(models)))
+                
+                # Model selection
+                selected_model = st.selectbox(
+                    "Model",
+                    models
+                )
+                
+                # Find the module in dynamic list
+                selected_module = next(
+                    (m for m in dynamic_modules 
+                     if m['manufacturer'] == selected_manufacturer and m['model_name'] == selected_model),
+                    None
+                )
+                
+                if selected_module:
+                    # Display module info
+                    st.info(f"""
+                    **{selected_manufacturer} {selected_model}**
+                    - Power: {selected_module['pdc0']}W
+                    - Efficiency: {selected_module['efficiency']:.1f}%
+                    - Technology: {selected_module['technology']}
+                    - Warranty: {selected_module.get('warranty_years', 25)} years
+                    - Source: {selected_module.get('source', 'Unknown')}
+                    """)
+                    
+                    module_type = selected_manufacturer.lower().replace(' ', '_') + '_' + selected_model.lower().replace(' ', '_')
+                    module_power = selected_module['pdc0']
+                    module_efficiency = selected_module['efficiency']
+                    gamma_pdc = selected_module.get('gamma_pdc', -0.0035)
+                else:
+                    st.error("Module not found")
+                    module_power = 450
+                    module_efficiency = 21.0
+                    gamma_pdc = -0.0035
+            
+            else:
+                # Fall back to static database
+                st.caption("📦 Using fallback database")
+                
+                # Get manufacturers
+                manufacturers = get_manufacturers()
+                
+                # Manufacturer selection
+                selected_manufacturer = st.selectbox(
+                    "Manufacturer",
+                    manufacturers,
+                    index=manufacturers.index("LONGi Solar") if "LONGi Solar" in manufacturers else 0
+                )
+                
+                # Get models for selected manufacturer
+                models = get_module_names_by_manufacturer(selected_manufacturer)
+                
+                # Model selection
+                selected_model = st.selectbox(
+                    "Model",
+                    models
+                )
+                
+                # Get module specs
+                try:
+                    selected_module = get_module_by_name(selected_manufacturer, selected_model)
+                    module_specs = module_to_dict(selected_module)
+                    
+                    # Display module info
+                    st.info(f"""
+                    **{selected_manufacturer} {selected_model}**
+                    - Power: {selected_module.pdc0}W
+                    - Efficiency: {selected_module.efficiency}%
+                    - Technology: {selected_module.technology}
+                    - Warranty: {selected_module.warranty_years} years
+                    """)
+                    
+                    module_type = selected_manufacturer.lower().replace(' ', '_') + '_' + selected_model.lower().replace(' ', '_')
+                    module_power = selected_module.pdc0
+                    module_efficiency = selected_module.efficiency
+                    gamma_pdc = selected_module.gamma_pdc
+                    
+                except Exception as e:
+                    st.error(f"Error loading module: {e}")
+                    module_power = 450
+                    module_efficiency = 21.0
+                    gamma_pdc = -0.0035
         else:
             # Custom module type
             module_type = st.selectbox(
@@ -376,6 +483,7 @@ def main():
             )
             module_power = st.slider("Module Power (W)", 300, 600, 450, 10)
             module_efficiency = st.slider("Module Efficiency (%)", 15.0, 25.0, 21.0, 0.5)
+            gamma_pdc = -0.0035
         
         system_capacity = st.slider("System Capacity (kW)", 1.0, 100.0, 10.0, 0.5)
         

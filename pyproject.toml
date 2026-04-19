@@ -13,6 +13,7 @@ dependencies = [
     "streamlit>=1.30.0",
     "openmeteo-requests>=1.7.5",
     "niquests>=3.0.0",
+    "requests>=2.31.0",
     "plotly>=5.0.0",
 ]
 
