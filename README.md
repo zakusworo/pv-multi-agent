@@ -375,6 +375,33 @@ This project demonstrates:
 ```bash
 streamlit run gui.py
 ```
+Opens at: http://localhost:8501
+
+### ☁️ Live Demo (Streamlit Cloud)
+
+**Try the live demo:** [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://pv-multi-agent.streamlit.app)
+
+*Note: Requires `OPENROUTER_API_KEY` in Streamlit Cloud secrets for LLM features. Module database works without API key.*
+
+### Deploy to Streamlit Cloud (Free)
+
+1. **Push your code to GitHub** (already done ✅)
+
+2. **Go to** https://share.streamlit.io
+
+3. **Connect your repository:**
+   - Repository: `zakusworo/pv-multi-agent`
+   - Branch: `master`
+   - Main file path: `gui.py`
+
+4. **Add secrets** (click "Secrets" button):
+   ```
+   OPENROUTER_API_KEY=sk-or-v1-your-key-here
+   ```
+
+5. **Click "Deploy!"** — Your app will be live in ~2 minutes
+
+6. **Share your app:** `https://YOUR-USERNAME-pv-multi-agent-gui-abc123.streamlit.app`
 
 ### Docker Deployment
 ```dockerfile
@@ -386,11 +413,22 @@ EXPOSE 8501
 CMD ["streamlit", "run", "gui.py", "--server.address=0.0.0.0"]
 ```
 
-### Cloud Hosting (Hugging Face Spaces, Streamlit Cloud)
-1. Push to GitHub
-2. Connect to Hugging Face Spaces / Streamlit Cloud
-3. Add `OPENROUTER_API_KEY` secret
-4. Deploy!
+Build and run:
+```bash
+docker build -t pv-multi-agent .
+docker run -p 8501:8501 pv-multi-agent
+```
+
+### Hugging Face Spaces (Alternative)
+
+1. Go to https://huggingface.co/spaces
+2. Click "Create new Space"
+3. Select "Streamlit" as SDK
+4. Connect your GitHub repository
+5. Add `OPENROUTER_API_KEY` in Space secrets
+6. Deploy!
+
+Your app will be at: `https://huggingface.co/spaces/YOUR-USERNAME/pv-multi-agent`
 
 ---
 
