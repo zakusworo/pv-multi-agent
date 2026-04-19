@@ -1,0 +1,28 @@
+[project]
+name = "pv-multi-agent"
+version = "1.0.0"
+description = "Multi-Agent AI System for PV Solar Simulation with GUI and Cloud LLM Support"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pvlib>=0.15.0",
+    "pandas>=3.0.2",
+    "numpy>=2.4.4",
+    "ollama>=0.6.1",
+    "openai>=1.0.0",
+    "streamlit>=1.30.0",
+    "openmeteo-requests>=1.7.5",
+    "niquests>=3.0.0",
+    "plotly>=5.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+[project.scripts]
+pv-agents = "pv_agents_cloud:main"
+pv-gui = "streamlit run gui.py"
