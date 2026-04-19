@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as follows:"
+title: "Multi-Agent PV System Calculator: AI-Powered Solar Energy Simulation"
+abstract: "A multi-agent AI system for photovoltaic (PV) solar system design and energy production simulation, combining open LLMs (local Ollama or cloud providers) with physics-based PVlib calculations."
+authors:
+  - family-names: "Kusworo"
+    given-names: "Zulfikar Aji"
+    email: "greataji13@gmail.com"
+    orcid: "https://orcid.org/0000-0000-0000-0000"  # Add your ORCID if available
+repository-code: "https://github.com/zakusworo/pv-multi-agent"
+url: "https://github.com/zakusworo/pv-multi-agent"
+version: "1.0.0"
+date-released: "2026-04-19"
+license: "MIT"
+keywords:
+  - "photovoltaic"
+  - "solar energy"
+  - "multi-agent systems"
+  - "artificial intelligence"
+  - "renewable energy"
+  - "pvlib"
+  - "LLM"
+  - "energy simulation"
+  - "solar power"
+  - "clean energy"
+references:
+  - type: software
+    title: "PVlib Python"
+    url: "https://pvlib-python.readthedocs.io/"
+  - type: software
+    title: "Streamlit"
+    url: "https://streamlit.io/"
+  - type: dataset
+    title: "CEC Module Database"
+    url: "https://www.energy.ca.gov/data-reports/energy-alternatives/cec-approved-module-list"

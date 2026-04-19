@@ -18,6 +18,7 @@ A multi-agent AI system for photovoltaic (PV) solar system design and energy pro
 | **Hybrid AI + Physics** | LLM reasoning + PVlib IEEE-standard calculations |
 | **Cloud LLM Support** | Local Ollama OR cloud providers (OpenRouter, OpenAI) |
 | **Web GUI** | Streamlit-based interactive interface |
+| **Dynamic Module Database** | Auto-fetches 154+ production modules from CEC database (updated weekly) |
 | **Validated Results** | Performance Ratio matches PVsyst (72.9% vs 72.8%) |
 | **Global Locations** | Pre-configured presets + custom coordinates |
 | **Financial Analysis** | LCOE, NPV, payback period, IRR calculations |
@@ -95,6 +96,12 @@ streamlit run gui.py
 - Monthly production charts
 - Financial metrics dashboard
 - Downloadable reports
+- **Dynamic PV module database** - Auto-fetches 154+ production modules from CEC database
+  - Modules updated weekly from California Energy Commission (CEC) via PVLib
+  - Filtered to modern production modules (≥350W, ≥17% efficiency)
+  - 14+ active manufacturers (LONGi, Jinko, Trina, Canadian, SunPower, etc.)
+  - Manual refresh button to fetch latest data on-demand
+  - Local caching for fast subsequent loads
 
 ### Option 2: CLI with Local LLM (Ollama)
 
@@ -135,13 +142,18 @@ python pv_agents_cloud.py \
 
 ```
 pv-multi-agent/
-├── gui.py                      # Streamlit web GUI
+├── gui.py                      # Streamlit web GUI with dynamic module database
 ├── pv_agents_cloud.py          # Multi-agent system with cloud LLM support
 ├── demo.py                     # Standalone demo (no LLM required)
 ├── pv_agents.py                # Original Ollama-only version
+├── module_fetcher.py           # Dynamic PV module database fetcher (CEC/PVLib)
+├── pv_module_database.py       # Static fallback module database (30 modules)
 ├── check_ollama.py             # Setup verification script
 ├── pyproject.toml              # Project dependencies
 ├── README.md                   # This file
+├── CITATION.md                 # Citation guidelines and formats
+├── CITATION.cff                # Citation File Format (GitHub standard)
+├── DEPLOYMENT.md               # Deployment guide
 ├── VALIDATION_REPORT.md        # PVsyst validation study
 └── tests/                      # Unit tests (coming soon)
 ```
@@ -411,4 +423,36 @@ Contributions welcome! Areas for improvement:
 
 **Built with:** Python | PVlib | Ollama | OpenAI | Streamlit | Multi-Agent Architecture
 
-**Author:** Your Name | **Contact:** your.email@example.com
+**Author:** Zulfikar Aji Kusworo | **Contact:** greataji13@gmail.com
+
+---
+
+## 📚 Citation
+
+If you use this software in your research or academic work, please cite it as follows:
+
+```bibtex
+@software{pv_multi_agent_2026,
+  author = {Kusworo, Zulfikar Aji},
+  title = {Multi-Agent PV System Calculator: AI-Powered Solar Energy Simulation},
+  year = {2026},
+  url = {https://github.com/zakusworo/pv-multi-agent},
+  version = {1.0.0},
+  publisher = {GitHub},
+  doi = {10.5281/zenodo.TODO}  <!-- Add Zenodo DOI when available -->
+}
+```
+
+**Suggested text citation:**
+
+> Kusworo, Z. A. (2026). Multi-Agent PV System Calculator: AI-Powered Solar Energy Simulation (Version 1.0.0) [Computer software]. GitHub. https://github.com/zakusworo/pv-multi-agent
+
+**For partial use (e.g., specific modules or methods):**
+
+> This work uses the Multi-Agent PV System Calculator developed by Kusworo et al., available at https://github.com/zakusworo/pv-multi-agent
+
+---
+
+## 📄 License
+
+MIT License - Open for research and commercial use. Attribution required for academic publications.
