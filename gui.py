@@ -14,6 +14,15 @@ from typing import Dict, Any
 import json
 import os
 
+# Import PV module database
+from pv_module_database import (
+    PV_MODULE_DATABASE, 
+    get_manufacturers, 
+    get_module_names_by_manufacturer,
+    get_module_by_name,
+    module_to_dict
+)
+
 # Page config
 st.set_page_config(
     page_title="PV Multi-Agent Calculator",
@@ -144,23 +153,20 @@ def simulate_pv_system(specs: Dict, weather: pd.DataFrame) -> Dict:
         model='haydavies'
     )['poa_global']
     
-    # Module parameters
-    module_params = {
-        'standard_poly': {'pdc0': 330, 'gamma_pdc': -0.004},
-        'standard_mono': {'pdc0': 450, 'gamma_pdc': -0.0035},
-        'premium_mono': {'pdc0': 545, 'gamma_pdc': -0.003}
-    }.get(module_type, {'pdc0': 450, 'gamma_pdc': -0.0035})
+    # Module parameters - use from database or defaults
+    module_power = specs.get('module_power', 450)
+    module_efficiency = specs.get('module_efficiency', 21.0)
+    gamma_pdc = specs.get('gamma_pdc', -0.0035)  # Temperature coefficient
     
     # Calculate modules needed
-    num_modules = int(np.ceil(system_capacity_kw * 1000 / module_params['pdc0']))
-    actual_capacity_kw = num_modules * module_params['pdc0'] / 1000
+    num_modules = int(np.ceil(system_capacity_kw * 1000 / module_power))
+    actual_capacity_kw = num_modules * module_power / 1000
     
     # Cell temperature
     temp_cell = weather['temp_air'] + poa_global * 0.02
     
     # DC power
-    gamma = module_params['gamma_pdc']
-    dc_power = actual_capacity_kw * (poa_global / 1000) * (1 + gamma * (temp_cell - 25))
+    dc_power = actual_capacity_kw * (poa_global / 1000) * (1 + gamma_pdc * (temp_cell - 25))
     dc_power = dc_power.clip(lower=0)
     
     # AC power (simple inverter model)
@@ -312,12 +318,66 @@ def main():
         
         st.header("⚙️ System Design")
         
+        # Module selection from database
+        st.subheader("PV Module Selection")
+        
+        # Option to use database or custom
+        use_database = st.checkbox("Select from module database", value=True)
+        
+        if use_database:
+            # Get manufacturers
+            manufacturers = get_manufacturers()
+            
+            # Manufacturer selection
+            selected_manufacturer = st.selectbox(
+                "Manufacturer",
+                manufacturers,
+                index=manufacturers.index("LONGi Solar") if "LONGi Solar" in manufacturers else 0
+            )
+            
+            # Get models for selected manufacturer
+            models = get_module_names_by_manufacturer(selected_manufacturer)
+            
+            # Model selection
+            selected_model = st.selectbox(
+                "Model",
+                models
+            )
+            
+            # Get module specs
+            try:
+                selected_module = get_module_by_name(selected_manufacturer, selected_model)
+                module_specs = module_to_dict(selected_module)
+                
+                # Display module info
+                st.info(f"""
+                **{selected_manufacturer} {selected_model}**
+                - Power: {selected_module.pdc0}W
+                - Efficiency: {selected_module.efficiency}%
+                - Technology: {selected_module.technology}
+                - Warranty: {selected_module.warranty_years} years
+                """)
+                
+                module_type = selected_manufacturer.lower().replace(' ', '_') + '_' + selected_model.lower().replace(' ', '_')
+                module_power = selected_module.pdc0
+                module_efficiency = selected_module.efficiency
+                
+            except Exception as e:
+                st.error(f"Error loading module: {e}")
+                module_type = "standard_mono"
+                module_power = 450
+                module_efficiency = 21.0
+        else:
+            # Custom module type
+            module_type = st.selectbox(
+                "Module Type",
+                ["standard_mono", "standard_poly", "premium_mono"],
+                format_func=lambda x: x.replace('_', ' ').title()
+            )
+            module_power = st.slider("Module Power (W)", 300, 600, 450, 10)
+            module_efficiency = st.slider("Module Efficiency (%)", 15.0, 25.0, 21.0, 0.5)
+        
         system_capacity = st.slider("System Capacity (kW)", 1.0, 100.0, 10.0, 0.5)
-        module_type = st.selectbox(
-            "Module Type",
-            ["standard_mono", "standard_poly", "premium_mono"],
-            format_func=lambda x: x.replace('_', ' ').title()
-        )
         
         # Auto-calculate optimal tilt
         auto_tilt = st.checkbox("Auto-calculate optimal tilt", value=True)
@@ -346,6 +406,9 @@ def main():
             'timezone': timezone,
             'system_capacity_kw': system_capacity,
             'module_type': module_type,
+            'module_power': module_power,
+            'module_efficiency': module_efficiency,
+            'gamma_pdc': -0.0035 if use_database else -0.0035,  # Could be from database
             'tilt': tilt,
             'azimuth': azimuth,
             'inverter_efficiency': 0.96,
