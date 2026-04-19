@@ -16,8 +16,8 @@
 ```bash
 cd /home/zakusworo/pv-multi-agent
 
-# Add GitHub remote (replace YOUR_USERNAME with your GitHub username)
-git remote add origin https://github.com/YOUR_USERNAME/pv-multi-agent.git
+# Add GitHub remote
+git remote add origin https://github.com/zakusworo/pv-multi-agent.git
 
 # Verify remote
 git remote -v
@@ -28,7 +28,7 @@ git push -u origin master
 
 ### Step 3: Verify on GitHub
 
-Visit: https://github.com/YOUR_USERNAME/pv-multi-agent
+Visit: https://github.com/zakusworo/pv-multi-agent
 
 You should see all files committed.
 
@@ -46,7 +46,7 @@ ssh-keygen -t ed25519 -C "your.email@example.com"
 # 3. Click "New SSH key" and paste
 
 # Add remote with SSH
-git remote add origin git@github.com:YOUR_USERNAME/pv-multi-agent.git
+git remote add origin git@github.com:zakusworo/pv-multi-agent.git
 
 # Push
 git push -u origin master
@@ -74,7 +74,7 @@ pip install huggingface_hub
 huggingface-cli login
 
 # Clone your space
-git clone https://huggingface.co/spaces/YOUR_USERNAME/pv-multi-agent
+git clone https://huggingface.co/spaces/zakusworo/pv-multi-agent
 cd pv-multi-agent
 
 # Copy files from your project
@@ -144,7 +144,7 @@ python pv_agents_cloud.py --provider ollama --model llama3.2:1b
 
 ```
 🌞 Multi-Agent PV System Calculator
-GitHub: https://github.com/YOUR_USERNAME/pv-multi-agent
+GitHub: https://github.com/zakusworo/pv-multi-agent
 
 - Multi-agent AI architecture with 6 specialized agents
 - Hybrid AI + Physics: LLM reasoning + PVlib IEEE calculations
@@ -181,7 +181,7 @@ ssh -T git@github.com
 git remote -v
 
 # Fix if needed
-git remote set-url origin https://github.com/YOUR_USERNAME/pv-multi-agent.git
+git remote set-url origin https://github.com/zakusworo/pv-multi-agent.git
 ```
 
 ### Large file errors

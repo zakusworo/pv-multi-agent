@@ -70,7 +70,7 @@ A multi-agent AI system for photovoltaic (PV) solar system design and energy pro
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/pv-multi-agent.git
+git clone https://github.com/zakusworo/pv-multi-agent.git
 cd pv-multi-agent
 
 # Install dependencies with uv (recommended)
