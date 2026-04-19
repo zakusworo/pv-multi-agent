@@ -9,6 +9,7 @@ authors:
     orcid: "https://orcid.org/0000-0000-0000-0000"  # Add your ORCID if available
 repository-code: "https://github.com/zakusworo/pv-multi-agent"
 url: "https://github.com/zakusworo/pv-multi-agent"
+doi: "10.5281/zenodo.19650332"
 version: "1.0.0"
 date-released: "2026-04-19"
 license: "MIT"

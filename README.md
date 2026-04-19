@@ -7,6 +7,7 @@ A multi-agent AI system for photovoltaic (PV) solar system design and energy pro
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![PVlib](https://img.shields.io/badge/pvlib-0.15.0-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19650332.svg)](https://doi.org/10.5281/zenodo.19650332)
 
 ---
 
@@ -439,7 +440,7 @@ If you use this software in your research or academic work, please cite it as fo
   url = {https://github.com/zakusworo/pv-multi-agent},
   version = {1.0.0},
   publisher = {GitHub},
-  doi = {10.5281/zenodo.TODO}  <!-- Add Zenodo DOI when available -->
+  doi = {10.5281/zenodo.19650332}
 }
 ```
 

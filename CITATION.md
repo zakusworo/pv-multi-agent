@@ -12,7 +12,7 @@ If you use this software in your research or academic work, please cite it using
   url = {https://github.com/zakusworo/pv-multi-agent},
   version = {1.0.0},
   publisher = {GitHub},
-  doi = {10.5281/zenodo.TODO}
+  doi = {10.5281/zenodo.19650332}
 }
 ```
 
