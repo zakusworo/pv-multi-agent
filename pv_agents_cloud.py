@@ -36,7 +36,13 @@ except ImportError:
 class LLMProvider:
     """Unified interface for multiple LLM providers"""
     
-    def __init__(self, provider: str = "ollama", model: str = "qwen2.5:3b", api_key: str = None, base_url: str = None):
+    def __init__(self, provider: str = "ollama", model: str = "gemma2:9b", api_key: str = None, base_url: str = None):
+        """
+        LLM Provider with unified interface.
+        
+        Local (Ollama) defaults: gemma2:9b
+        Cloud (OpenRouter) defaults: qwen/qwen-3.6-plus
+        """
         self.provider = provider
         self.model = model
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
@@ -149,7 +155,7 @@ class PVAgent:
     
     def __init__(self, name: str, llm_provider: LLMProvider = None):
         self.name = name
-        self.llm = llm_provider or LLMProvider(provider="ollama", model="qwen2.5:3b")
+        self.llm = llm_provider or LLMProvider(provider="ollama", model="gemma2:9b")
         self.memory = []
         
     def think(self, task: str, context: Dict = None) -> str:
@@ -612,7 +618,7 @@ class PVMultiAgentSystem:
     """Main orchestrator for the multi-agent PV system"""
     
     def __init__(self, llm_provider: LLMProvider = None):
-        self.llm = llm_provider or LLMProvider(provider="ollama", model="qwen2.5:3b")
+        self.llm = llm_provider or LLMProvider(provider="ollama", model="gemma2:9b")
         
         self.geo_agent = GeolocationAgent(self.llm)
         self.weather_agent = WeatherAgent(self.llm)
@@ -669,8 +675,8 @@ def main():
     parser = argparse.ArgumentParser(description="Multi-Agent PV System Calculator")
     parser.add_argument("--provider", choices=["ollama", "openrouter", "openai"], 
                        default="ollama", help="LLM provider")
-    parser.add_argument("--model", default="qwen2.5:3b", 
-                       help="Model name (e.g., qwen2.5:3b, gemma2:9b for local; qwen/qwen-2.5-72b-instruct, google/gemma-2-9b-it for cloud)")
+    parser.add_argument("--model", default="gemma2:9b", 
+                       help="Model name. Local: gemma2:9b, qwen2.5:7b. Cloud: google/gemma-2-9b-it, qwen/qwen-3.6-plus")
     parser.add_argument("--api-key", help="API key (or set OPENROUTER_API_KEY env var)")
     parser.add_argument("--base-url", help="API base URL (for OpenRouter)")
     parser.add_argument("--latitude", type=float, default=-6.9147, help="Latitude")
