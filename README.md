@@ -1,5 +1,3 @@
-<p align="center">
-  <img src="docs/screenshots/gui_main.png" alt="Sunnyside AI Dashboard" width="800">
 </p>
 
 <h1 align="center">Sunnyside AI</h1>
