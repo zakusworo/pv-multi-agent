@@ -1,0 +1,52 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║           PV SYSTEM ANALYSIS REPORT                               ║
+╠══════════════════════════════════════════════════════════════════╣
+║  System: Phoenix 10kW Residential                             ║
+║  Location: 33.4484°N, 112.0740°W                                      ║
+╠══════════════════════════════════════════════════════════════════╣
+
+📍 LOCATION ANALYSIS
+─────────────────────────────────────────────────────────────────
+Climate Assessment: Subtropical - Excellent solar resource, consider cooling
+Optimal Tilt: 33.4°
+Max Sun Elevation: 78.1°
+
+⚙️  SYSTEM DESIGN
+─────────────────────────────────────────────────────────────────
+DC Capacity:      18.0 kW
+AC Capacity:      15.0 kW
+DC/AC Ratio:      1.20
+Array Tilt:       33.4°
+Array Azimuth:    180° (South=180)
+Inverter:         15kW String Inverter
+Module Config:    2 strings × 20 modules
+Total Modules:    40
+
+⚡ ENERGY PRODUCTION
+─────────────────────────────────────────────────────────────────
+Annual Production:        21,731 kWh/year
+Specific Yield:            1,207 kWh/kWp/year
+Performance Ratio:         70.0%
+Capacity Factor:           13.8%
+Peak Output:                15.0 kW
+
+Monthly Production (kWh):
+  Jan:    2,139   Feb:    1,957   Mar:    1,826
+  Apr:    1,650   May:    1,610   Jun:    1,560
+  Jul:    1,661   Aug:    1,682   Sep:    1,697
+  Oct:    1,912   Nov:    1,941   Dec:    2,095
+
+💰 FINANCIAL ANALYSIS
+─────────────────────────────────────────────────────────────────
+System Cost:          $    45,000
+Annual Savings:       $     2,825/year
+Simple Payback:             15.9 years
+LCOE:                 $     0.088/kWh
+NPV (25 years):       $    -7,206
+Est. IRR:                    6.3%
+
+╔══════════════════════════════════════════════════════════════════╗
+║  Multi-Agent System: GeoLocation → SystemDesign → Weather       ║
+║                     → Calculation → Financial → Report          ║
+╚══════════════════════════════════════════════════════════════════╝

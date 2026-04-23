@@ -10,8 +10,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -19,6 +17,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 .venv/
@@ -39,11 +38,20 @@ Thumbs.db
 
 # Project specific
 *.txt
-!requirements.txt
+!reports/*.txt
 .pytest_cache/
 .coverage
 htmlcov/
+*.db
+*.sqlite3
 
-# API keys (keep example files)
+# API keys / secrets
 *.env
 !*.env.example
+
+# uv
+requirements.lock
+requirements-dev.lock
+
+# Logs
+*.log

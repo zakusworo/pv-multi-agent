@@ -4,49 +4,104 @@ Streamlit GUI for Multi-Agent PV System Calculator
 Run with: streamlit run gui.py
 """
 
+import os
+import sys
+import json
+import base64
+from io import BytesIO
+from datetime import datetime, timedelta
+from typing import Dict, Any
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pvlib
 from pvlib import location, irradiance
-from datetime import datetime, timedelta
-from typing import Dict, Any
-import json
-import os
+
+# Add project paths for module discovery
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _PROJECT_ROOT)
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "data"))
 
 # Import PV module database
 from pv_module_database import (
-    PV_MODULE_DATABASE, 
-    get_manufacturers, 
+    PV_MODULE_DATABASE,
+    get_manufacturers,
     get_module_names_by_manufacturer,
     get_module_by_name,
-    module_to_dict
+    module_to_dict,
 )
 
 # Dynamic module fetcher (fetches from live sources)
 try:
     from module_fetcher import fetch_all_modules, get_module_statistics
+
     DYNAMIC_FETCHER_AVAILABLE = True
 except ImportError:
     DYNAMIC_FETCHER_AVAILABLE = False
 
+# LLM imports
+try:
+    from pv_agents_cloud import LLMProvider
+
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+
+# PDF imports
+try:
+    from pdf_generator import generate_pv_report_pdf, generate_ai_analysis_pdf
+
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+
+###############################################################################
 # Page config
+###############################################################################
 st.set_page_config(
-    page_title="PV Multi-Agent Calculator",
-    page_icon="☀️",
+    page_title="SunLab AI | PV Simulator",
+    page_icon="🌅",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # Custom CSS
 st.markdown("""
 <style>
+    body {
+        background-color: #111827;
+    }
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
+        font-size: 3.5rem;
+        font-weight: 800;
+        color: #00d4ff;
         text-align: center;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
+        text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    }
+    .tagline {
+        font-size: 1.2rem;
+        color: #9ca3af;
+        text-align: center;
+        margin-bottom: 2rem;
+        letter-spacing: 0.02em;
+    }
+    .logo-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    .logo-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(to bottom, #f59e0b 50%, #3b82f6 50%);
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
     }
     .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -269,14 +324,45 @@ LCOE:                 ${results['lcoe']:>10.3f}/kWh
     return report
 
 
+def create_llm_provider(provider: str, model: str, api_key: str = None, base_url: str = None):
+    """Factory for LLM provider"""
+    if not LLM_AVAILABLE:
+        return None
+    return LLMProvider(provider=provider, model=model, api_key=api_key, base_url=base_url)
+
+
+def generate_pv_context(specs: dict, results: dict) -> str:
+    """Generate simulation context for LLM"""
+    return f"""PV System Simulation Results:
+Location: {specs.get('name', 'Unknown')} ({specs['latitude']:.4f}, {specs['longitude']:.4f})
+System Capacity: {results['dc_capacity_kw']:.1f} kW DC / {results['ac_capacity_kw']:.1f} kW AC
+Module Power: {specs.get('module_power', 450)}W x {results['num_modules']} modules
+Tilt: {specs.get('tilt', 0):.1f} deg, Azimuth: {specs.get('azimuth', 0):.0f} deg
+Annual Production: {results['annual_kwh']:,.0f} kWh
+Specific Yield: {results['specific_yield']:.0f} kWh/kWp/year
+Performance Ratio: {results['performance_ratio']:.1f}%
+Capacity Factor: {results['capacity_factor']:.1f}%
+Peak Output: {results['peak_power_kw']:.1f} kW
+System Cost: ${results['system_cost']:,.0f}
+Annual Savings: ${results['annual_savings']:,.0f}
+Payback: {results['payback_years']:.1f} years
+LCOE: ${results['lcoe']:.3f}/kWh
+"""
+
+
 # ============== Main App ==============
 
 def main():
     # Header
-    st.markdown('<p class="main-header">☀️ Multi-Agent PV System Calculator</p>', unsafe_allow_html=True)
     st.markdown("""
-    <div style='text-align: center; color: #666; margin-bottom: 2rem;'>
-        AI-powered solar energy simulation with physics-based pvlib engine
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+            <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(to bottom, #f59e0b 50%, #3b82f6 50%); box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);"></div>
+            <span style="font-size: 3.5rem; font-weight: 800; color: #00d4ff; letter-spacing: -0.02em; text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);">Sunnyside AI</span>
+        </div>
+        <div style="font-size: 1.2rem; color: #9ca3af; letter-spacing: 0.02em;">
+            AI-powered solar simulation by Sunnyside AI — Physics meets Intelligence
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -504,7 +590,33 @@ def main():
         st.header("💰 Financial")
         cost_per_watt = st.number_input("Cost ($/W)", value=2.50, step=0.10)
         electricity_rate = st.number_input("Electricity Rate ($/kWh)", value=0.13, step=0.01)
-        
+
+        st.markdown("---")
+        st.header("🤖 AI Agent")
+
+        enable_ai = st.checkbox("Enable AI Insights", value=True)
+        ai_provider = None
+        ai_model = None
+        ai_api_key = None
+
+        if enable_ai and LLM_AVAILABLE:
+            ai_provider = st.selectbox(
+                "LLM Provider",
+                ["ollama", "openrouter", "openai"],
+                format_func=lambda x: {"ollama": "🖥️ Ollama (Local)", "openrouter": "☁️ OpenRouter (Cloud)", "openai": "☁️ OpenAI"}.get(x, x)
+            )
+
+            if ai_provider == "ollama":
+                ai_model = st.text_input("Model", "gemma4:e4b")
+            elif ai_provider == "openrouter":
+                ai_model = st.text_input("Model", "qwen3.6:latest")
+                ai_api_key = st.text_input("API Key", type="password", value=os.getenv("OPENROUTER_API_KEY", ""))
+            elif ai_provider == "openai":
+                ai_model = st.text_input("Model", "gpt-3.5-turbo")
+                ai_api_key = st.text_input("API Key", type="password", value=os.getenv("OPENAI_API_KEY", ""))
+        elif enable_ai and not LLM_AVAILABLE:
+            st.warning("⚠️ LLM module not available. Install deps: pip install ollama openai")
+
         # Store specs
         specs = {
             'name': location_name,
@@ -523,7 +635,36 @@ def main():
             'cost_per_watt': cost_per_watt,
             'electricity_rate': electricity_rate
         }
-    
+
+        # AI button in sidebar
+        ai_clicked = False
+        if enable_ai and LLM_AVAILABLE:
+            ai_clicked = st.button("🚀 Generate AI Insights", type="primary", use_container_width=True)
+
+        # ========== PDF REPORT SECTION ==========
+        st.markdown("---")
+        st.header("📄 PDF Report")
+
+        # PDF customization inputs
+        pdf_company = st.text_input("Company Name", "", key="pdf_company")
+        pdf_author = st.text_input("Prepared By", "", key="pdf_author")
+        pdf_logo = st.file_uploader("Company Logo", type=["png", "jpg", "jpeg"], key="pdf_logo")
+
+        # Store logo temporarily
+        logo_path = ""
+        if pdf_logo is not None:
+            try:
+                logo_bytes = pdf_logo.read()
+                import tempfile
+                logo_path = os.path.join(tempfile.gettempdir(), f"pv_logo_{pdf_logo.name}")
+                with open(logo_path, "wb") as f:
+                    f.write(logo_bytes)
+            except Exception:
+                logo_path = ""
+
+        if not PDF_AVAILABLE:
+            st.warning("PDF module not available. Install: uv add fpdf2 pillow")
+
     # Main content
     col1, col2 = st.columns([2, 1])
     
@@ -586,19 +727,166 @@ def main():
     f3.metric("Payback Period", f"{results['payback_years']:.1f} years")
     f4.metric("LCOE", f"${results['lcoe']:.3f}/kWh")
     
-    # Full report
-    with st.expander("📄 View Full Report"):
-        report = generate_report(specs, results, solar)
-        st.text(report)
-        
-        # Download button
-        st.download_button(
-            label="Download Report (.txt)",
-            data=report,
-            file_name=f"pv_report_{location_name.replace(' ', '_').lower()}.txt",
-            mime="text/plain"
-        )
+    # Reports section
+    st.markdown("---")
+    st.markdown("### 📄 Reports")
     
+    # Generate report text
+    report = generate_report(specs, results, solar)
+    
+    # PDF Report buttons
+    if PDF_AVAILABLE:
+        col_pdf1, col_pdf2, col_txt = st.columns(3)
+        
+        with col_pdf1:
+            if st.button("📊 Generate PV Report PDF", use_container_width=True, type="secondary"):
+                with st.spinner("Generating professional PDF..."):
+                    try:
+                        pdf_path = generate_pv_report_pdf(
+                            specs=specs,
+                            results=results,
+                            solar=solar,
+                            company_name=pdf_company,
+                            author_name=pdf_author,
+                            logo_path=logo_path,
+                            output_path=f"/tmp/pv_report_{location_name.replace(' ', '_').lower()}.pdf"
+                        )
+                        with open(pdf_path, "rb") as f:
+                            st.download_button(
+                                label="⬇️ Download PV Report PDF",
+                                data=f,
+                                file_name=f"pv_report_{location_name.replace(' ', '_').lower()}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                    except Exception as e:
+                        st.error(f"PDF generation failed: {e}")
+        
+        with col_pdf2:
+            if st.session_state.get('ai_response') and st.button("🤖 Generate AI Analysis PDF", use_container_width=True, type="secondary"):
+                with st.spinner("Generating AI analysis PDF..."):
+                    try:
+                        ai_pdf_path = generate_ai_analysis_pdf(
+                            ai_response=st.session_state.ai_response,
+                            chat_history=st.session_state.get('ai_chat_history', []),
+                            specs=specs,
+                            results=results,
+                            company_name=pdf_company,
+                            author_name=pdf_author,
+                            logo_path=logo_path,
+                            output_path=f"/tmp/pv_ai_analysis_{location_name.replace(' ', '_').lower()}.pdf"
+                        )
+                        with open(ai_pdf_path, "rb") as f:
+                            st.download_button(
+                                label="⬇️ Download AI Analysis PDF",
+                                data=f,
+                                file_name=f"pv_ai_analysis_{location_name.replace(' ', '_').lower()}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                    except Exception as e:
+                        st.error(f"AI PDF generation failed: {e}")
+        
+        with col_txt:
+            st.download_button(
+                label="📝 Download Text Report",
+                data=report,
+                file_name=f"pv_report_{location_name.replace(' ', '_').lower()}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+    else:
+        # Fallback when PDF not available
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="📝 Download Text Report",
+                data=report,
+                file_name=f"pv_report_{location_name.replace(' ', '_').lower()}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+        with col2:
+            st.info("Install fpdf2 for PDF reports: uv add fpdf2 pillow")
+    
+    # AI Insights Panel
+    if enable_ai and LLM_AVAILABLE:
+        st.markdown("---")
+        st.subheader("🤖 AI PV Advisor")
+
+        # Session state for AI chat persistence
+        if 'ai_response' not in st.session_state:
+            st.session_state.ai_response = None
+        if 'ai_chat_history' not in st.session_state:
+            st.session_state.ai_chat_history = []
+
+        # Generate button
+        if ai_clicked and not st.session_state.ai_response:
+            with st.spinner("Consulting AI agents..."):
+                try:
+                    llm = create_llm_provider(ai_provider, ai_model, ai_api_key)
+                    if llm:
+                        context = generate_pv_context(specs, results)
+                        messages = [
+                            {"role": "system", "content": "You are a senior solar PV engineer named Sunnyside. Analyze PV simulation results and provide actionable recommendations with clear bullet points."},
+                            {"role": "user", "content": (
+                                "Analyze the following PV simulation data and provide: "
+                                "1) Key findings and system performance assessment, "
+                                "2) Optimization suggestions (tilt, azimuth, DC/AC ratio, or module selection), "
+                                "3) Financial feasibility summary, "
+                                "4) Any risks or warnings.\n\n"
+                                f"{context}"
+                            )}
+                        ]
+                        st.session_state.ai_response = llm.chat(messages, temperature=0.3)
+                        st.session_state.ai_chat_history.append({"role": "assistant", "content": st.session_state.ai_response})
+                    else:
+                        st.error("Failed to initialize LLM provider.")
+                except Exception as e:
+                    st.error(f"AI request failed: {e}")
+
+        if ai_clicked and st.session_state.ai_response:
+            st.success("Sunnyside analysis complete")
+            st.markdown(f"""
+            <div style="background-color:#1e1e2f; color:#e0e0e0; padding:1.2rem; border-radius:0.5rem; line-height:1.6;">
+                {st.session_state.ai_response.replace(chr(10), '<br>')}
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Chat input follow-up
+            user_question = st.chat_input("Ask follow-up question...")
+            if user_question:
+                with st.spinner("Thinking..."):
+                    try:
+                        llm = create_llm_provider(ai_provider, ai_model, ai_api_key)
+                        follow_messages = [
+                            {"role": "system", "content": "You are Sunnyside, a senior PV engineer. Use the previous simulation context to answer the user's follow-up question."},
+                            {"role": "user", "content": generate_pv_context(specs, results)},
+                            {"role": "assistant", "content": st.session_state.ai_response},
+                            {"role": "user", "content": user_question}
+                        ]
+                        answer = llm.chat(follow_messages, temperature=0.3)
+                        st.session_state.ai_chat_history.append({"role": "user", "content": user_question})
+                        st.session_state.ai_chat_history.append({"role": "assistant", "content": answer})
+                    except Exception as e:
+                        st.error(f"Follow-up failed: {e}")
+
+            # Display chat history
+            if len(st.session_state.ai_chat_history) > 0:
+                st.markdown("**Chat History**")
+                for msg in st.session_state.ai_chat_history:
+                    role_icon = "👤" if msg["role"] == "user" else "🤖"
+                    st.markdown(f"{role_icon} **{msg['role'].title()}:** {msg['content']}")
+
+            # Clear button
+            if st.button("🔄 Reset AI Chat", use_container_width=True):
+                st.session_state.ai_response = None
+                st.session_state.ai_chat_history = []
+                st.rerun()
+
+        elif enable_ai and not st.session_state.ai_response:
+            st.info("Click '🚀 Generate AI Insights' in the sidebar to get AI-powered analysis.")
+
     # Hourly output chart
     st.markdown("### ⚡ Hourly Output Sample (First Week)")
     hourly_sample = results['hourly_output'].iloc[:168]  # First week
@@ -612,9 +900,9 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #666;'>
-        <b>Multi-Agent PV System Calculator</b> | 
-        Powered by PVlib Python + Streamlit | 
-        <a href='https://github.com/yourusername/pv-multi-agent'>View on GitHub</a>
+        <b>Sunnyside AI | PV Simulator</b> | 
+        Powered by PVlib + Multi-Agent AI | 
+        <a href='https://github.com/zakusworo/pv-multi-agent'>View on GitHub</a>
     </div>
     """, unsafe_allow_html=True)
 

@@ -1,0 +1,52 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║           PV SYSTEM ANALYSIS REPORT                               ║
+╠══════════════════════════════════════════════════════════════════╣
+║  System: Politeknik Energi dan Pertambangan Bandung           ║
+║  Location: -6.9147°N, 107.6098°E                                      ║
+╠══════════════════════════════════════════════════════════════════╣
+
+📍 LOCATION ANALYSIS
+─────────────────────────────────────────────────────────────────
+Climate Assessment: Tropical - High solar resource, potential for bifacial
+Optimal Tilt: 6.9°
+Max Sun Elevation: 59.6°
+
+⚙️  SYSTEM DESIGN
+─────────────────────────────────────────────────────────────────
+DC Capacity:      18.0 kW
+AC Capacity:      15.0 kW
+DC/AC Ratio:      1.20
+Array Tilt:       6.9°
+Array Azimuth:    0° (South=180)
+Inverter:         15kW String Inverter
+Module Config:    2 strings × 20 modules
+Total Modules:    40
+
+⚡ ENERGY PRODUCTION
+─────────────────────────────────────────────────────────────────
+Annual Production:        17,633 kWh/year
+Specific Yield:              980 kWh/kWp/year
+Performance Ratio:         70.0%
+Capacity Factor:           11.2%
+Peak Output:                13.5 kW
+
+Monthly Production (kWh):
+  Jan:    1,504   Feb:    1,491   Mar:    1,537
+  Apr:    1,465   May:    1,479   Jun:    1,443
+  Jul:    1,517   Aug:    1,505   Sep:    1,451
+  Oct:    1,446   Nov:    1,381   Dec:    1,414
+
+💰 FINANCIAL ANALYSIS
+─────────────────────────────────────────────────────────────────
+System Cost:          $    45,000
+Annual Savings:       $     2,292/year
+Simple Payback:             19.6 years
+LCOE:                 $     0.108/kWh
+NPV (25 years):       $   -14,334
+Est. IRR:                    5.1%
+
+╔══════════════════════════════════════════════════════════════════╗
+║  Multi-Agent System: GeoLocation → SystemDesign → Weather       ║
+║                     → Calculation → Financial → Report          ║
+╚══════════════════════════════════════════════════════════════════╝

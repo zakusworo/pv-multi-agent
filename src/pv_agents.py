@@ -235,7 +235,7 @@ class WeatherAgent(PVAgent):
             weather.ghi = pd.Series(hourly['shortwave_radiation'], index=times)
             weather.dni = pd.Series(hourly['direct_normal_irradiance'], index=times)
             weather.dhi = pd.Series(hourly['diffuse_radiation'], index=times)
-            weather.temp_air = pd.Series(hoverly['temperature_2m'], index=times)
+            weather.temp_air = pd.Series(hourly['temperature_2m'], index=times)
             weather.wind_speed = pd.Series(hourly['windspeed_10m'], index=times)
             
             self.log(f"Successfully fetched {len(times)} hours of weather data")

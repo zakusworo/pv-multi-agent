@@ -1,6 +1,6 @@
 [project]
 name = "pv-multi-agent"
-version = "1.0.0"
+version = "1.0.1"
 description = "Multi-Agent AI System for PV Solar Simulation with GUI and Cloud LLM Support"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,6 +15,9 @@ dependencies = [
     "niquests>=3.0.0",
     "requests>=2.31.0",
     "plotly>=5.0.0",
+    "fpdf2>=2.8.7",
+    "pillow>=12.2.0",
+    "matplotlib>=3.10.8",
 ]
 
 [project.optional-dependencies]
@@ -25,5 +28,8 @@ dev = [
 ]
 
 [project.scripts]
-pv-agents = "pv_agents_cloud:main"
-pv-gui = "streamlit run gui.py"
+pv-agents = "src.pv_agents_cloud:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
