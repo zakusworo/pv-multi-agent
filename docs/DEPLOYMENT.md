@@ -1,215 +1,176 @@
-# GitHub Deployment Guide
+# Deployment Guide
 
-## Quick Setup (5 minutes)
+## Local Installation
 
-### Step 1: Create GitHub Repository
+### Step 1: Prerequisites
 
-1. Go to https://github.com/new
-2. Repository name: `pv-multi-agent`
-3. Description: "Multi-Agent AI System for PV Solar Simulation with GUI and Cloud LLM Support"
-4. Visibility: Public (recommended) or Private
-5. **DO NOT** initialize with README/.gitignore (we already have these)
-6. Click "Create repository"
+- **Python 3.12+** (check: `python3 --version`)
+- **uv** package manager (`pip install uv` or see https://docs.astral.sh/uv/)
+- **Ollama** (optional, for local AI): https://ollama.com/download
 
-### Step 2: Connect Local Repo to GitHub
+### Step 2: Clone Repository
 
 ```bash
-cd /home/zakusworo/pv-multi-agent
-
-# Add GitHub remote
-git remote add origin https://github.com/zakusworo/pv-multi-agent.git
-
-# Verify remote
-git remote -v
-
-# Push to GitHub
-git push -u origin master
+git clone https://github.com/zakusworo/pv-multi-agent.git
+cd pv-multi-agent
 ```
 
-### Step 3: Verify on GitHub
+### Step 3: Install Dependencies
 
-Visit: https://github.com/zakusworo/pv-multi-agent
-
-You should see all files committed.
-
----
-
-## Alternative: SSH Authentication (Recommended for frequent pushes)
-
+**With uv (recommended):**
 ```bash
-# Generate SSH key (if you don't have one)
-ssh-keygen -t ed25519 -C "your.email@example.com"
+uv sync
+```
 
-# Add to GitHub
-# 1. Copy the key: cat ~/.ssh/id_ed25519.pub
-# 2. Go to https://github.com/settings/keys
-# 3. Click "New SSH key" and paste
+**With pip:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e .
+```
 
-# Add remote with SSH
-git remote add origin git@github.com:zakusworo/pv-multi-agent.git
+### Step 4: Run the Application
 
-# Push
-git push -u origin master
+**Streamlit GUI (Recommended):**
+```bash
+.venv/bin/streamlit run gui.py --server.port 8501
+# Open http://localhost:8501
+```
+
+**CLI Mode (Ollama required):**
+```bash
+ollama serve  # In a separate terminal
+.venv/bin/python3 -m src.pv_agents
 ```
 
 ---
 
-## Deploy GUI to Cloud (Optional)
+## Ollama Setup (Optional — for AI Insights)
 
-### Option A: Hugging Face Spaces (Free, Easy)
+### Install Ollama
+```bash
+# Linux/WSL
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Start server
+ollama serve
+```
+
+### Pull Models
+```bash
+# Lightweight model (1B params, fast)
+ollama pull llama3.2:1b
+
+# Better quality model (4B params)
+ollama pull gemma4:e4b
+```
+
+### Verify
+```bash
+ollama list
+# Should show: llama3.2:1b, gemma4:e4b
+```
+
+---
+
+## Cloud Deployment
+
+### Streamlit Cloud (Free Tier)
+
+1. Push your repo to GitHub
+2. Go to https://share.streamlit.io
+3. Connect repository:
+   - **Repo:** `zakusworo/pv-multi-agent`
+   - **Branch:** `master`
+   - **Main file:** `gui.py`
+4. **Add secrets** (Secrets button):
+   ```toml
+   OPENROUTER_API_KEY = "sk-..."
+   ```
+5. Click **Deploy** — live in ~2 minutes
+
+### Hugging Face Spaces
 
 1. Go to https://huggingface.co/spaces
 2. Click "Create new Space"
-3. Name: `pv-multi-agent`
-4. SDK: `Streamlit`
-5. Visibility: Public
-6. Click "Create Space"
+3. SDK: **Streamlit**
+4. Connect your GitHub repo
+5. Add secrets for `OPENROUTER_API_KEY`
 
-7. In terminal:
+### Docker
+
 ```bash
-# Install Hugging Face Hub CLI
-pip install huggingface_hub
+# Build
+docker build -t sunnyside-ai .
 
-# Login
-huggingface-cli login
-
-# Clone your space
-git clone https://huggingface.co/spaces/zakusworo/pv-multi-agent
-cd pv-multi-agent
-
-# Copy files from your project
-cp /home/zakusworo/pv-multi-agent/gui.py .
-cp /home/zakusworo/pv-multi-agent/pyproject.toml .
-cp /home/zakusworo/pv-multi-agent/pv_agents_cloud.py .
-# ... copy other needed files
-
-# Add requirements
-echo "streamlit
-pvlib
-pandas
-numpy
-ollama
-openai
-plotly
-openmeteo-requests
-niquests" > requirements.txt
-
-# Commit and push
-git add .
-git commit -m "Deploy PV Multi-Agent GUI"
-git push
+# Run
+docker run -p 8501:8501 sunnyside-ai
 ```
 
-### Option B: Streamlit Cloud (Free)
-
-1. Go to https://streamlit.io/cloud
-2. Sign in with GitHub
-3. Click "New app"
-4. Select your `pv-multi-agent` repository
-5. Main file path: `gui.py`
-6. Click "Deploy!"
-
-### Option C: Render/Railway (Free tier)
-
-Similar process - connect GitHub repo and deploy.
+**Dockerfile** (create in project root):
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install -e .
+EXPOSE 8501
+CMD ["streamlit", "run", "gui.py", "--server.address=0.0.0.0"]
+```
 
 ---
 
-## Usage After Deployment
+## Environment Variables
 
-### Local GUI
-```bash
-cd /home/zakusworo/pv-multi-agent
-streamlit run gui.py
-# Opens at http://localhost:8501
-```
-
-### Cloud LLM (Ollama Cloud)
-```bash
-export OPENROUTER_API_KEY=sk-or-...
-python pv_agents_cloud.py --provider openrouter --model qwen3.6:latest
-```
-
-**Note:** `qwen3.6:latest` is available on Ollama Cloud/OpenRouter. For local Ollama, use `gemma4:e4b` or `qwen2.5:7b`.
-
-### Local LLM (Ollama)
-```bash
-ollama pull gemma4:e4b
-python pv_agents_cloud.py --provider ollama --model gemma4:e4b
-```
-
-**Note:** Ollama uses simplified model names. The cloud equivalent on Ollama Cloud is `qwen3.6:latest`.
-
----
-
-## Sharing Your Project
-
-### Add to Your Resume/Portfolio
-
-```
-🌞 Multi-Agent PV System Calculator
-GitHub: https://github.com/zakusworo/pv-multi-agent
-
-- Multi-agent AI architecture with 6 specialized agents
-- Hybrid AI + Physics: LLM reasoning + PVlib IEEE calculations
-- Web GUI deployed on Streamlit Cloud
-- Validated against industry-standard PVsyst (PR: 72.9% vs 72.8%)
-- Tech stack: Python, PVlib, Streamlit, Ollama, OpenAI API
-```
-
-### Demo Video Script (for LinkedIn/Twitter)
-
-1. Show GUI landing page
-2. Select location (Bandung, Indonesia)
-3. Adjust system capacity slider
-4. Show real-time charts updating
-5. Download report
-6. Show CLI with cloud LLM output
-7. Mention: "Validated against PVsyst!"
+| Variable | Required For | Example |
+|----------|-------------|---------|
+| `OLLAMA_HOST` | Local Ollama | `http://localhost:11434` |
+| `OPENROUTER_API_KEY` | Cloud LLM via OpenRouter | `sk-or-v1-...` |
+| `OPENAI_API_KEY` | Cloud LLM via OpenAI | `sk-...` |
 
 ---
 
 ## Troubleshooting
 
-### "Permission denied (publickey)"
+### "module not found" errors
 ```bash
-# Test SSH connection
-ssh -T git@github.com
-
-# If fails, re-add SSH key to GitHub
+# Ensure you're in the project root and venv is active
+cd /path/to/pv-multi-agent
+source .venv/bin/activate
+uv sync
 ```
 
-### "Repository not found"
+### "PDF module not available" in GUI
 ```bash
-# Check remote URL
-git remote -v
-
-# Fix if needed
-git remote set-url origin https://github.com/zakusworo/pv-multi-agent.git
+# Reinstall fpdf2 and Pillow
+uv add fpdf2 pillow
+# Or: pip install fpdf2 Pillow
 ```
 
-### Large file errors
+### Fonts missing in PDF
+The PDF generator automatically searches system font directories. If no DejaVu fonts are found, it falls back to Helvetica. Install DejaVu fonts for best Unicode support:
 ```bash
-# Check file sizes
-git ls-files -s | sort -rn | head
+# Ubuntu/Debian/WSL
+sudo apt-get install fonts-dejavu
+```
 
-# If uv.lock is too large, add to .gitignore
-echo "uv.lock" >> .gitignore
-git rm --cached uv.lock
-git commit -m "Remove uv.lock from tracking"
+### "Ollama not running"
+```bash
+# Check Ollama status
+ollama list
+
+# If error, start it:
+ollama serve
 ```
 
 ---
 
-## Next Steps
+## Next Steps After Deployment
 
-1. ✅ Push to GitHub
-2. ✅ Deploy GUI to Streamlit Cloud / Hugging Face
-3. 📝 Add license file (MIT recommended)
-4. 🏷️ Add GitHub topics: `solar`, `pv`, `multi-agent`, `ai`, `renewable-energy`
-5. 📊 Add screenshot to README
-6. 🔗 Share on LinkedIn, Twitter, Reddit (r/solar, r/renewableenergy)
+1. **Add GitHub topics:** `solar`, `pv`, `multi-agent`, `ai`, `renewable-energy`
+2. **Pin the live demo URL** in your README
+3. **Share:** LinkedIn, Twitter, r/solar, r/renewableenergy
+4. **Add a demo video** (30 seconds showing location select → module pick → PDF download)
 
 ---
 
-**Questions?** Open an issue on GitHub or contact: your.email@example.com
+**Questions?** Open an issue at https://github.com/zakusworo/pv-multi-agent/issues

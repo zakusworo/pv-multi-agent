@@ -1,17 +1,17 @@
 cff-version: 1.2.0
 message: "If you use this software in your research, please cite it as follows:"
-title: "Multi-Agent PV System Calculator: AI-Powered Solar Energy Simulation"
-abstract: "A multi-agent AI system for photovoltaic (PV) solar system design and energy production simulation, combining open LLMs (local Ollama or cloud providers) with physics-based PVlib calculations."
+title: "Sunnyside AI: Multi-Agent PV Solar Simulation Platform"
+abstract: "A multi-agent AI system for photovoltaic (PV) solar system design and energy production simulation, combining open LLMs with physics-based PVlib calculations. Features battery storage optimization, PLN tariff calculator, and professional PDF report generation."
 authors:
   - family-names: "Kusworo"
     given-names: "Zulfikar Aji"
     email: "greataji13@gmail.com"
-    orcid: "https://orcid.org/0000-0000-0000-0000"  # Add your ORCID if available
+    orcid: "https://orcid.org/0000-0000-0000-0000"
 repository-code: "https://github.com/zakusworo/pv-multi-agent"
 url: "https://github.com/zakusworo/pv-multi-agent"
 doi: "10.5281/zenodo.19650332"
-version: "1.0.0"
-date-released: "2026-04-19"
+version: "1.1.0"
+date-released: "2026-04-23"
 license: "MIT"
 keywords:
   - "photovoltaic"
@@ -24,6 +24,9 @@ keywords:
   - "energy simulation"
   - "solar power"
   - "clean energy"
+  - "battery storage"
+  - "net metering"
+  - "PLN tariff"
 references:
   - type: software
     title: "PVlib Python"

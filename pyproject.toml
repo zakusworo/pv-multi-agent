@@ -1,7 +1,7 @@
 [project]
 name = "pv-multi-agent"
-version = "1.0.1"
-description = "Multi-Agent AI System for PV Solar Simulation with GUI and Cloud LLM Support"
+version = "1.1.0"
+description = "Sunnyside AI: Multi-Agent PV Solar Simulation Platform with GUI, Battery Storage, and PDF Reports"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
