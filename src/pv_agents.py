@@ -760,6 +760,184 @@ _This section represents the collective reasoning of all agents._
         return report
 
 
+# ============== Battery & Storage Agent ==============
+
+class BatteryAgent(PVAgent):
+    """Agent for battery storage design and self-consumption optimization."""
+
+    def __init__(self, model: str = "llama3.2"):
+        super().__init__("BatteryAgent", model)
+
+    def recommend_battery(
+        self,
+        system_capacity_kw: float,
+        annual_solar_kwh: float,
+        profile_type: str = "residential",
+        tariff_code: str = "R-1/2200VA",
+    ) -> dict:
+        """Recommend battery capacity based on system size and load type."""
+        # Heuristic recommendation
+        if profile_type == "residential":
+            recommended_capacity = system_capacity_kw * 1.0  # 1h-2h storage
+            recommended_capacity = min(max(recommended_capacity, 2.5), 20.0)
+        elif profile_type == "commercial":
+            recommended_capacity = system_capacity_kw * 1.5
+            recommended_capacity = min(max(recommended_capacity, 5.0), 50.0)
+        else:  # industrial
+            recommended_capacity = system_capacity_kw * 2.0
+            recommended_capacity = min(max(recommended_capacity, 10.0), 200.0)
+
+        context = {
+            "system_capacity_kw": system_capacity_kw,
+            "annual_solar_kwh": annual_solar_kwh,
+            "profile_type": profile_type,
+            "tariff_code": tariff_code,
+            "recommended_capacity_kwh": round(recommended_capacity, 1),
+        }
+
+        insight = self.think(
+            "Recommend a lithium-ion battery capacity (kWh) and charge/discharge rates for a grid-tied PV system in Indonesia. Consider load profile type, PLN tariff, and typical usage patterns.",
+            context
+        )
+
+        return {
+            "recommended_capacity_kwh": recommended_capacity,
+            "recommended_charge_kw": round(recommended_capacity * 0.5, 1),
+            "recommended_discharge_kw": round(recommended_capacity * 0.5, 1),
+            "estimated_cost_idr": round(recommended_capacity * 4_500_000),
+            "insight": insight,
+        }
+
+    def analyze_storage_result(self, storage_result: dict) -> str:
+        """Generate LLM insight on storage results."""
+        context = {
+            "self_consumption_ratio": round(storage_result.get("self_consumption_ratio", 0) * 100, 1),
+            "self_sufficiency_ratio": round(storage_result.get("self_sufficiency_ratio", 0) * 100, 1),
+            "annual_savings_idr": round(storage_result.get("annual_savings_idr", 0)),
+            "payback_years": round(storage_result.get("payback_years", 0), 1),
+            "total_solar_kwh": round(storage_result.get("total_solar_kwh", 0)),
+            "total_grid_import_kwh": round(storage_result.get("total_grid_import_kwh", 0)),
+            "total_grid_export_kwh": round(storage_result.get("total_grid_export_kwh", 0)),
+        }
+        return self.think(
+            "Analyze the battery storage simulation results. Evaluate whether the battery improves self-consumption, reduces PLN bills, and provides a reasonable payback. Give 3-5 specific recommendations.",
+            context
+        )
+
+
+class StorageCoordinator:
+    """Coordinator that adds battery + load + tariff analysis to PV simulation."""
+
+    def __init__(self, model: str = "gemma4:e4b"):
+        from .storage_engine import BatterySpecs
+        from .storage_optimizer import self_consumption_optimizer, AnnualStorageResult
+        from .load_profiles import generate_profile
+        from .pln_tariffs import list_tariffs, get_tariff
+        self.model = model
+        self.battery_agent = BatteryAgent(model)
+        self._imports_ready = True
+
+    def run_storage_simulation(
+        self,
+        hourly_solar_kw: pd.Series,
+        profile_type: str = "residential",
+        annual_load_kwh: Optional[float] = None,
+        battery_capacity_kwh: float = 10.0,
+        battery_charge_kw: float = 5.0,
+        battery_discharge_kw: float = 5.0,
+        tariff_code: str = "R-1/2200VA",
+    ) -> dict:
+        """Run PV + battery self-consumption simulation.
+
+        Args:
+            hourly_solar_kw: Hourly AC power from PV simulation (kW)
+            profile_type: 'residential', 'commercial', 'industrial'
+            annual_load_kwh: Override annual load. Defaults per profile type.
+            battery_capacity_kwh: Battery capacity
+            battery_charge_kw: Max charge power
+            battery_discharge_kw: Max discharge power
+            tariff_code: PLN tariff code
+
+        Returns:
+            dict with AnnualStorageResult fields + agent insights + hourly DataFrame
+        """
+        from .storage_engine import BatterySpecs, BatterySimulator
+        from .storage_optimizer import self_consumption_optimizer, StorageScenario
+        from .load_profiles import generate_profile
+        from .pln_tariffs import get_tariff, calculate_bill_components
+
+        # Generate load profile
+        load_kw = generate_profile(profile_type=profile_type, annual_kwh=annual_load_kwh)
+
+        # Align indices
+        times = hourly_solar_kw.index
+        if len(load_kw) != len(times):
+            load_kw = load_kw[:len(times)]
+        load_kw.index = times
+
+        # Battery specs
+        battery_specs = BatterySpecs(
+            capacity_kwh=battery_capacity_kwh,
+            max_charge_kw=battery_charge_kw,
+            max_discharge_kw=battery_discharge_kw,
+        )
+
+        # Run optimizer
+        result = self_consumption_optimizer(
+            solar_generation_kw=hourly_solar_kw,
+            load_kw=load_kw,
+            battery_specs=battery_specs,
+            tariff_code=tariff_code,
+            strategy="self_consumption_first",
+        )
+
+        # Agent insights
+        agent_recommendation = self.battery_agent.recommend_battery(
+            system_capacity_kw=hourly_solar_kw.max() * 1.2,
+            annual_solar_kwh=hourly_solar_kw.sum(),
+            profile_type=profile_type,
+            tariff_code=tariff_code,
+        )
+        agent_analysis = self.battery_agent.analyze_storage_result(
+            {
+                "self_consumption_ratio": result.self_consumption_ratio,
+                "self_sufficiency_ratio": result.self_sufficiency_ratio,
+                "annual_savings_idr": result.annual_savings_idr,
+                "payback_years": result.payback_years,
+                "total_solar_kwh": result.total_solar_kwh,
+                "total_grid_import_kwh": result.total_grid_import_kwh,
+                "total_grid_export_kwh": result.total_grid_export_kwh,
+            }
+        )
+
+        return {
+            "scenario": {
+                "profile_type": profile_type,
+                "tariff_code": tariff_code,
+                "battery_capacity_kwh": battery_capacity_kwh,
+                "battery_charge_kw": battery_charge_kw,
+                "battery_discharge_kw": battery_discharge_kw,
+            },
+            "hourly_flows": result.hourly_flows,
+            "self_consumption_ratio": result.self_consumption_ratio,
+            "self_sufficiency_ratio": result.self_sufficiency_ratio,
+            "total_solar_kwh": result.total_solar_kwh,
+            "total_load_kwh": result.total_load_kwh,
+            "total_self_consumed_kwh": result.total_self_consumed_kwh,
+            "total_battery_charge_kwh": result.total_battery_charge_kwh,
+            "total_battery_discharge_kwh": result.total_battery_discharge_kwh,
+            "total_grid_import_kwh": result.total_grid_import_kwh,
+            "total_grid_export_kwh": result.total_grid_export_kwh,
+            "total_bill_without_pv_idr": result.total_bill_without_pv_idr,
+            "total_bill_with_pv_idr": result.total_bill_with_pv_idr,
+            "annual_savings_idr": result.annual_savings_idr,
+            "payback_years": result.payback_years,
+            "battery_summary": result.battery_summary,
+            "agent_recommendation": agent_recommendation,
+            "agent_analysis": agent_analysis,
+        }
+
+
 # ============== Coordinator ==============
 
 class PVSystemCoordinator:

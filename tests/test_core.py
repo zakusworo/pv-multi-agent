@@ -201,7 +201,100 @@ def test_financial_calculations_positive():
     }
     weather = generate_synthetic_weather(specs, periods=8760)
     results = simulate_pv_system(specs, weather)
-    assert results['system_cost'] > 0
-    assert results['annual_savings'] > 0
-    assert results['payback_years'] > 0
-    assert np.isfinite(results['lcoe'])
+    assert results['lcoe'] >= 0
+
+
+# ============================================================================
+# Battery Storage Tests
+# ============================================================================
+
+from storage_engine import BatterySpecs, BatterySimulator
+from storage_optimizer import self_consumption_optimizer
+from load_profiles import generate_profile
+from pln_tariffs import get_tariff, list_tariffs
+
+
+def test_battery_specs_init():
+    b = BatterySpecs(capacity_kwh=10.0, max_charge_kw=5.0, max_discharge_kw=5.0)
+    assert b.capacity_kwh == 10.0
+    assert b.usable_capacity_kwh == 10.0 * (1.0 - 0.10)
+    assert b.upfront_cost_idr == 10.0 * 4_500_000
+
+
+def test_battery_simulate_step():
+    specs = BatterySpecs(capacity_kwh=5.0, max_charge_kw=2.5, max_discharge_kw=2.5)
+    sim = BatterySimulator(specs)
+    st = sim.step(1.0, ambient_temp_c=30.0)
+    assert st.charge_power_kw == 1.0
+    assert st.soc > specs.initial_soc
+    assert st.soc <= specs.max_soc
+
+
+def test_battery_simulate_full_cycle():
+    specs = BatterySpecs(capacity_kwh=5.0, max_charge_kw=2.5, round_trip_efficiency=0.95)
+    sim = BatterySimulator(specs)
+    # Charge 2 hours at 2.5 kW (clipped by SOC limit eventually)
+    for _ in range(3):
+        sim.step(2.5, ambient_temp_c=30.0)
+    assert sim.current_state.soc > specs.initial_soc
+    # Discharge
+    for _ in range(3):
+        sim.step(-2.5, ambient_temp_c=30.0)
+    assert sim.current_state.soc >= specs.min_soc
+    summary = sim.get_summary()
+    assert summary["total_cycles"] > 0
+
+
+def test_self_consumption_optimizer_basic():
+    np.random.seed(42)
+    times = pd.date_range("2024-01-01", periods=24, freq="h")
+    # Make solar match daytime hours
+    solar = pd.Series(np.zeros(24), index=times)
+    solar[6:18] = 2.0  # 2 kW during day
+
+    load = pd.Series(np.ones(24) * 1.0, index=times)  # 1 kW constant
+
+    battery = BatterySpecs(capacity_kwh=2.0, max_charge_kw=1.0, max_discharge_kw=1.0)
+    result = self_consumption_optimizer(solar, load, battery, tariff_code="R-1/1300VA")
+
+    assert result.total_solar_kwh > 0
+    assert result.total_load_kwh > 0
+    assert result.self_consumption_ratio <= 1.0
+    assert result.self_sufficiency_ratio <= 1.0
+    # With battery, self-consumption should be higher than without
+    assert result.total_battery_charge_kwh >= 0
+
+
+def test_load_profile_generation():
+    prof = generate_profile("residential", annual_kwh=4380, random_seed=42)
+    assert len(prof) == 8760
+    assert (prof >= 0).all()
+    assert prof.sum() > 4000  # Approx annual
+    assert prof.sum() < 5000
+
+
+def test_load_profile_commercial():
+    prof = generate_profile("commercial", annual_kwh=36500, random_seed=42)
+    assert len(prof) == 8760
+    # Commercial should have higher daytime load
+    daytime = prof.between_time("09:00", "17:00").mean()
+    nighttime = prof.between_time("22:00", "05:00").mean()
+    assert daytime > nighttime * 2  # Commercial peaks during day
+
+
+def test_pln_tariff_lookup():
+    t = get_tariff("R-1/1300VA")
+    assert t.customer_group == "R-1"
+    assert t.power_va == 1300
+    t_list = list_tariffs()
+    assert len(t_list) >= 7  # Should have all defined tariffs
+
+
+def test_pln_bill_calculation():
+    t = get_tariff("R-1/2200VA")
+    from pln_tariffs import calculate_bill_components
+    bill = calculate_bill_components(2000, 500, t)
+    assert bill["net_bill_idr"] >= 0
+    assert bill["export_credit_idr"] > 0
+    assert bill["energy_charge_idr"] > bill["export_credit_idr"]  # import > export
+

@@ -57,6 +57,18 @@ try:
 except ImportError:
     PDF_AVAILABLE = False
 
+# Storage & Self-Consumption imports
+try:
+    sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
+    from storage_engine import BatterySpecs, BatterySimulator
+    from storage_optimizer import self_consumption_optimizer, StorageScenario
+    from load_profiles import generate_profile
+    from pln_tariffs import list_tariffs, get_tariff, PLN_TARIFFS
+    from pv_agents import StorageCoordinator
+    STORAGE_AVAILABLE = True
+except ImportError:
+    STORAGE_AVAILABLE = False
+
 ###############################################################################
 # Page config
 ###############################################################################
@@ -591,6 +603,40 @@ def main():
         cost_per_watt = st.number_input("Cost ($/W)", value=2.50, step=0.10)
         electricity_rate = st.number_input("Electricity Rate ($/kWh)", value=0.13, step=0.01)
 
+        # ====== BATTERY STORAGE SECTION ======
+        st.markdown("---")
+        st.header("🔋 Battery Storage + PLN Net Metering")
+
+        enable_storage = st.checkbox("Enable Battery & Self-Consumption Analysis", value=False)
+
+        if enable_storage and STORAGE_AVAILABLE:
+            st.subheader("Customer Profile")
+            sc_profile = st.selectbox(
+                "Load Profile Type",
+                ["residential", "commercial", "industrial"],
+                format_func=lambda x: x.title(),
+            )
+            sc_annual_load = st.number_input(
+                "Annual Load (kWh)", value=4380 if sc_profile == "residential" else (36500 if sc_profile == "commercial" else 350000), step=100
+            )
+
+            st.subheader("PLN Tariff")
+            tariff_list = list(PLN_TARIFFS.keys())
+            sc_tariff = st.selectbox(
+                "Tariff Code",
+                tariff_list,
+                index=tariff_list.index("R-1/2200VA") if "R-1/2200VA" in tariff_list else 0,
+            )
+            t = get_tariff(sc_tariff)
+            st.caption(f"Energy rate: Rp {t.energy_rate_idr_kwh:,.0f}/kWh | Fixed: Rp {t.fixed_charge_idr_month:,.0f}/mo")
+
+            st.subheader("Battery Specs")
+            batt_capacity = st.slider("Battery Capacity (kWh)", 1.0, 50.0, 10.0, 0.5)
+            batt_charge = st.slider("Max Charge Power (kW)", 0.5, 25.0, 5.0, 0.5)
+            batt_discharge = st.slider("Max Discharge Power (kW)", 0.5, 25.0, 5.0, 0.5)
+        else:
+            enable_storage = False
+
         st.markdown("---")
         st.header("🤖 AI Agent")
 
@@ -726,7 +772,81 @@ def main():
     f2.metric("Annual Savings", f"${results['annual_savings']:,.0f}/yr")
     f3.metric("Payback Period", f"{results['payback_years']:.1f} years")
     f4.metric("LCOE", f"${results['lcoe']:.3f}/kWh")
-    
+
+    # ====== STORAGE & SELF-CONSUMPTION SECTION ======
+    if enable_storage and STORAGE_AVAILABLE:
+        st.markdown("---")
+        st.subheader("🔋 Self-Consumption Optimizer (PLN Net Metering)")
+
+        with st.spinner("Simulating battery & load flows..."):
+            try:
+                coordinator = StorageCoordinator()
+                stor = coordinator.run_storage_simulation(
+                    hourly_solar_kw=results['hourly_output'],
+                    profile_type=sc_profile,
+                    annual_load_kwh=sc_annual_load,
+                    battery_capacity_kwh=batt_capacity,
+                    battery_charge_kw=batt_charge,
+                    battery_discharge_kw=batt_discharge,
+                    tariff_code=sc_tariff,
+                )
+
+                # Top summary metrics
+                s1, s2, s3, s4 = st.columns(4)
+                s1.metric("Self-Consumption Ratio", f"{stor['self_consumption_ratio']*100:.1f}%")
+                s2.metric("Self-Sufficiency", f"{stor['self_sufficiency_ratio']*100:.1f}%")
+                s3.metric("Annual Savings", f"Rp {stor['annual_savings_idr']:,.0f}")
+                s4.metric("Battery Payback", f"{stor['payback_years']:.1f} yrs")
+
+                st.markdown("#### Energy Flow Summary (Annual)")
+                fl1, fl2, fl3, fl4, fl5 = st.columns(5)
+                fl1.metric("Solar Gen", f"{stor['total_solar_kwh']:,.0f} kWh")
+                fl2.metric("Load Used", f"{stor['total_load_kwh']:,.0f} kWh")
+                fl3.metric("Battery In", f"{stor['total_battery_charge_kwh']:,.0f} kWh")
+                fl4.metric("Battery Out", f"{stor['total_battery_discharge_kwh']:,.0f} kWh")
+                fl5.metric("Grid Import", f"{stor['total_grid_import_kwh']:,.0f} kWh")
+                fl6, fl7, fl8 = st.columns(3)
+                fl6.metric("Grid Export", f"{stor['total_grid_export_kwh']:,.0f} kWh")
+                fl7.metric("Bill w/o PV", f"Rp {stor['total_bill_without_pv_idr']:,.0f}")
+                fl8.metric("Bill w/ PV", f"Rp {stor['total_bill_with_pv_idr']:,.0f}")
+
+                # Soc heatmap
+                st.markdown("#### Battery State of Charge Heatmap")
+                flows = stor['hourly_flows']
+                # Reshape SOC to 24h x days for heatmap
+                soc = flows['battery_soc'].values[:8760]
+                hours = len(soc)
+                days = hours // 24
+                soc_matrix = soc[:days*24].reshape(days, 24)
+                soc_df = pd.DataFrame(soc_matrix.T, columns=[f"Day {i+1}" for i in range(days)])
+                # Downsample columns for display speed
+                if len(soc_df.columns) > 100:
+                    step = len(soc_df.columns) // 100
+                    soc_df = soc_df.iloc[:, ::step]
+                st.line_chart(soc_df.mean(axis=1), use_container_width=True)
+
+                # Monthly bar chart: solar vs load vs import vs export
+                st.markdown("#### Monthly Energy Flows")
+                flows_monthly = flows.resample('ME', label='right').sum()[['solar_generation', 'load_consumption', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge']]
+                st.bar_chart(flows_monthly, use_container_width=True)
+
+                # Daily Sankey-style stacked area for a sample week
+                st.markdown("#### Typical Week Energy Flow (Stacked)")
+                week_flow = flows.head(168)[['solar_generation', 'load_consumption', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge']]
+                st.area_chart(week_flow, use_container_width=True)
+
+                # Agent insights
+                with st.expander("🤖 Battery Agent Analysis"):
+                    st.markdown("**Recommendation**")
+                    st.info(stor['agent_recommendation'].get('insight', 'N/A'))
+                    st.markdown("**Annual Analysis**")
+                    st.info(stor['agent_analysis'])
+
+            except Exception as e:
+                st.error(f"Storage simulation failed: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+
     # Reports section
     st.markdown("---")
     st.markdown("### 📄 Reports")
