@@ -93,7 +93,7 @@ except Exception as _stor_err:
 # Page config
 ###############################################################################
 st.set_page_config(
-    page_title="SunLab AI | PV Simulator",
+    page_title="Sunnyside AI | PV Simulator",
     page_icon="🌅",
     layout="wide",
     initial_sidebar_state="expanded",
