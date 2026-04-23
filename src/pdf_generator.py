@@ -9,15 +9,33 @@ import tempfile
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-import numpy as np
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+except ImportError as _mpl_err:
+    plt = None  # type: ignore
+    import warnings
+    warnings.warn(f"matplotlib not available for PDF charts: {_mpl_err}")
 
-from fpdf import FPDF
-from PIL import Image
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
+
+try:
+    from fpdf import FPDF
+except ImportError as _fpdf_err:
+    raise ImportError(f"fpdf2 is required for PDF generation. Install: uv add fpdf2") from _fpdf_err
+
+try:
+    from PIL import Image
+except ImportError as _pil_err:
+    Image = None  # type: ignore
+    import warnings
+    warnings.warn(f"Pillow not available for PDF image processing: {_pil_err}")
 
 
 class SunnysidePDF(FPDF):

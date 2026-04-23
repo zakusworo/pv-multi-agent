@@ -49,13 +49,31 @@ try:
 except ImportError:
     LLM_AVAILABLE = False
 
-# PDF imports
+# PDF imports — try direct import first (when running as package), then file-based fallback (Streamlit standalone)
+import warnings
+_pdf_gen_path = os.path.join(_PROJECT_ROOT, "src", "pdf_generator.py")
+PDF_AVAILABLE = False
 try:
     from pdf_generator import generate_pv_report_pdf, generate_ai_analysis_pdf
-
     PDF_AVAILABLE = True
 except ImportError:
-    PDF_AVAILABLE = False
+    # Streamlit or other runtime where sys.path lacks src/ — load explicitly
+    try:
+        import importlib.util
+        if not os.path.exists(_pdf_gen_path):
+            raise FileNotFoundError(f"pdf_generator.py not found at {_pdf_gen_path}")
+        _pdf_spec = importlib.util.spec_from_file_location("pdf_generator", _pdf_gen_path)
+        if _pdf_spec is None or _pdf_spec.loader is None:
+            raise ImportError(f"Could not load module spec from {_pdf_gen_path}")
+        _pdf_module = importlib.util.module_from_spec(_pdf_spec)
+        _pdf_spec.loader.exec_module(_pdf_module)
+        generate_pv_report_pdf = _pdf_module.generate_pv_report_pdf
+        generate_ai_analysis_pdf = _pdf_module.generate_ai_analysis_pdf
+        PDF_AVAILABLE = True
+    except Exception as _pdf_err:
+        warnings.warn(f"PDF generator import failed: {type(_pdf_err).__name__}: {_pdf_err}")
+        generate_pv_report_pdf = None
+        generate_ai_analysis_pdf = None
 
 # Storage & Self-Consumption imports
 try:
@@ -66,8 +84,10 @@ try:
     from pln_tariffs import list_tariffs, get_tariff, PLN_TARIFFS
     from pv_agents import StorageCoordinator
     STORAGE_AVAILABLE = True
-except ImportError:
+except Exception as _stor_err:
     STORAGE_AVAILABLE = False
+    import warnings
+    warnings.warn(f"Storage module import failed: {_stor_err}")
 
 ###############################################################################
 # Page config
