@@ -165,7 +165,7 @@ class GeolocationAgent(PVAgent):
             },
             "optimal_tilt_by_month": {f"month_{i+1}": round(t, 1) for i, t in enumerate(optimal_tilts)},
             "recommended_fixed_tilt": round(np.mean(optimal_tilts), 1),
-            "suggested_azimuth": 180 if abs(specs.latitude) < 23.5 else (180 if specs.latitude > 0 else 0)
+            "suggested_azimuth": 180 if specs.latitude > 0 else 0
         }
         
         # Get LLM reasoning

@@ -44,6 +44,16 @@ Thumbs.db
 htmlcov/
 *.db
 *.sqlite3
+test_*.py
+
+# Temporary files
+*.pdf
+tmp/
+temp/
+.coverage.*
+
+# Node (if using any node tools)
+node_modules/
 
 # API keys / secrets
 *.env
