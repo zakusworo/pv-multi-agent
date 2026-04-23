@@ -244,16 +244,200 @@ def create_hourly_sample_chart(results: dict, width: int = 800, height: int = 30
     return tmp_path
 
 
+
+
+def create_storage_flow_week_chart(stor: dict, width: int = 900, height: int = 380) -> str:
+    """Create a stacked area chart showing energy flows for a typical week."""
+    if plt is None or np is None:
+        return None
+    flows = stor.get('hourly_flows')
+    if flows is None or hasattr(flows, '__len__') and len(flows) == 0:
+        return None
+    week = flows.head(168).copy()
+    hours = range(len(week))
+
+    fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
+    fig.patch.set_facecolor('#ffffff')
+    ax.set_facecolor('#fafbfc')
+
+    solar_to_load = week['solar_generation'].clip(lower=0).values
+    grid_import = week['grid_import'].clip(lower=0).values
+    battery_disch = week['battery_discharge'].clip(lower=0).values
+    battery_chg = week['battery_charge'].clip(lower=0).values
+    load = week['load_consumption'].clip(lower=0).values
+
+    ax.fill_between(hours, 0, solar_to_load, label='Solar Gen', color='#f59e0b', alpha=0.85)
+    ax.fill_between(hours, solar_to_load, solar_to_load + grid_import, label='Grid Import', color='#ef4444', alpha=0.7)
+    ax.fill_between(hours, solar_to_load + grid_import, solar_to_load + grid_import + battery_disch,
+                    label='Battery Discharge', color='#10b981', alpha=0.75)
+    ax.plot(hours, load, color='#374151', linewidth=1.5, label='Load', linestyle='--')
+
+    ax2 = ax.twinx()
+    ax2.fill_between(hours, 0, battery_chg, color='#3b82f6', alpha=0.45, label='Battery Charge')
+    ax2.set_ylabel('Charge / Export (kWh)', fontsize=8, color='#3b82f6')
+    ax2.tick_params(colors='#3b82f6', labelsize=7)
+    ax2.spines['top'].set_visible(False)
+
+    ax.set_xlabel('Hour (first 168h = 1 week)', fontsize=9, color='#374151')
+    ax.set_ylabel('Energy to Load (kWh)', fontsize=9, color='#374151')
+    ax.set_title('Typical Week: Energy Flows (Solar -> Load -> Battery -> Grid)', fontsize=11, fontweight='bold', color='#111827', pad=10)
+    ax.tick_params(colors='#6b7280', labelsize=8)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_color('#e5e7eb')
+    ax.spines['left'].set_color('#e5e7eb')
+    ax.spines['bottom'].set_color('#e5e7eb')
+    ax.yaxis.grid(True, linestyle='--', alpha=0.4)
+
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=7, framealpha=0.9)
+
+    plt.tight_layout()
+    tmp_path = tempfile.mktemp(suffix='.png')
+    fig.savefig(tmp_path, dpi=100, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return tmp_path
+
+
+def create_battery_soc_chart(stor: dict, width: int = 900, height: int = 300) -> str:
+    """Battery State of Charge line chart for a typical week."""
+    if plt is None or np is None:
+        return None
+    flows = stor.get('hourly_flows')
+    if flows is None or hasattr(flows, '__len__') and len(flows) == 0:
+        return None
+    week = flows.head(168).copy()
+    hours = range(len(week))
+    soc = week['battery_soc'].values * 100  # percent
+
+    fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
+    fig.patch.set_facecolor('#ffffff')
+    ax.set_facecolor('#fafbfc')
+
+    ax.plot(hours, soc, color='#8b5cf6', linewidth=1.8, alpha=0.9)
+    ax.fill_between(hours, soc, alpha=0.2, color='#8b5cf6')
+    ax.axhline(y=20, color='#ef4444', linestyle='--', linewidth=0.8, alpha=0.7, label='Min SoC (20%)')
+    ax.axhline(y=80, color='#10b981', linestyle='--', linewidth=0.8, alpha=0.7, label='Target SoC (80%)')
+
+    ax.set_xlabel('Hour (first 168h = 1 week)', fontsize=9, color='#374151')
+    ax.set_ylabel('Battery SoC (%)', fontsize=9, color='#374151')
+    ax.set_title('Battery State of Charge - Typical Week', fontsize=11, fontweight='bold', color='#111827', pad=10)
+    ax.tick_params(colors='#6b7280', labelsize=8)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#e5e7eb')
+    ax.spines['bottom'].set_color('#e5e7eb')
+    ax.yaxis.grid(True, linestyle='--', alpha=0.4)
+    ax.set_ylim(0, 105)
+    ax.legend(loc='lower right', fontsize=7, framealpha=0.9)
+
+    plt.tight_layout()
+    tmp_path = tempfile.mktemp(suffix='.png')
+    fig.savefig(tmp_path, dpi=100, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return tmp_path
+
+
+def create_financial_comparison_chart(stor: dict, width: int = 800, height: int = 340) -> str:
+    """Bar chart comparing bill with and without PV + battery."""
+    if plt is None or np is None:
+        return None
+    bill_without = stor.get('total_bill_without_pv_idr', 0)
+    bill_with = stor.get('total_bill_with_pv_idr', 0)
+    savings = stor.get('annual_savings_idr', 0)
+    payback = stor.get('payback_years', 0)
+
+    fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
+    fig.patch.set_facecolor('#ffffff')
+    ax.set_facecolor('#fafbfc')
+
+    categories = ['Without PV', 'With PV + Battery']
+    values = [bill_without, bill_with]
+    colors = ['#ef4444', '#10b981']
+
+    bars = ax.bar(categories, values, color=colors, width=0.5, edgecolor='white', linewidth=2, alpha=0.9)
+
+    for bar, val in zip(bars, values):
+        height_bar = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width() / 2., height_bar,
+                f'Rp {val:,.0f}',
+                ha='center', va='bottom', fontsize=10, fontweight='bold', color='#374151')
+
+    if savings > 0:
+        ax.annotate(f'Savings: Rp {savings:,.0f}/yr\\nPayback: {payback:.1f} yrs',
+                    xy=(0.5, 0.5), xycoords='axes fraction',
+                    ha='center', fontsize=10, fontweight='bold',
+                    bbox=dict(boxstyle='round,pad=0.4', facecolor='#fef3c7', edgecolor='#f59e0b', alpha=0.95))
+
+    ax.set_ylabel('Annual Bill (IDR)', fontsize=9, color='#374151')
+    ax.set_title('PLN Bill Comparison: With vs Without PV System', fontsize=11, fontweight='bold', color='#111827', pad=10)
+    ax.tick_params(colors='#6b7280', labelsize=9)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#e5e7eb')
+    ax.spines['bottom'].set_color('#e5e7eb')
+    ax.yaxis.grid(True, linestyle='--', alpha=0.4)
+
+    plt.tight_layout()
+    tmp_path = tempfile.mktemp(suffix='.png')
+    fig.savefig(tmp_path, dpi=100, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return tmp_path
+
+
+def create_monthly_flow_chart(stor: dict, width: int = 900, height: int = 360) -> str:
+    """Monthly bar chart with all flow components."""
+    if plt is None or np is None:
+        return None
+    flows = stor.get('hourly_flows')
+    if flows is None or hasattr(flows, '__len__') and len(flows) == 0:
+        return None
+    monthly = flows.resample('ME', label='right').sum()[['solar_generation', 'load_consumption', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge']]
+    months = [m.strftime('%b') for m in monthly.index]
+
+    fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
+    fig.patch.set_facecolor('#ffffff')
+    ax.set_facecolor('#fafbfc')
+
+    x = np.arange(len(months))
+    width_bar = 0.13
+
+    ax.bar(x - 2.5 * width_bar, monthly['solar_generation'], width_bar, label='Solar Gen', color='#f59e0b', alpha=0.9)
+    ax.bar(x - 1.5 * width_bar, monthly['load_consumption'], width_bar, label='Load', color='#374151', alpha=0.85)
+    ax.bar(x - 0.5 * width_bar, monthly['battery_charge'], width_bar, label='Batt Charge', color='#3b82f6', alpha=0.8)
+    ax.bar(x + 0.5 * width_bar, monthly['battery_discharge'], width_bar, label='Batt Discharge', color='#10b981', alpha=0.8)
+    ax.bar(x + 1.5 * width_bar, monthly['grid_import'], width_bar, label='Grid Import', color='#ef4444', alpha=0.8)
+    ax.bar(x + 2.5 * width_bar, monthly['grid_export'], width_bar, label='Grid Export', color='#8b5cf6', alpha=0.8)
+
+    ax.set_xlabel('Month', fontsize=9, color='#374151')
+    ax.set_ylabel('Energy (kWh)', fontsize=9, color='#374151')
+    ax.set_title('Monthly Energy Flows', fontsize=11, fontweight='bold', color='#111827', pad=10)
+    ax.set_xticks(x)
+    ax.set_xticklabels(months, rotation=45, ha='right')
+    ax.tick_params(colors='#6b7280', labelsize=8)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#e5e7eb')
+    ax.spines['bottom'].set_color('#e5e7eb')
+    ax.yaxis.grid(True, linestyle='--', alpha=0.4)
+    ax.legend(fontsize=7, loc='upper left', ncol=3, framealpha=0.9)
+
+    plt.tight_layout()
+    tmp_path = tempfile.mktemp(suffix='.png')
+    fig.savefig(tmp_path, dpi=100, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return tmp_path
 def generate_pv_report_pdf(
     specs: dict,
     results: dict,
     solar: dict,
+    storage_results: dict = None,
     company_name: str = "",
     author_name: str = "",
     logo_path: str = "",
     output_path: str = "pv_report.pdf"
 ) -> str:
-    """Generate professional PDF report"""
+    """Generate professional PDF report. When storage_results is provided, appends a Battery & Self-Consumption Analysis page."""
     
     pdf = SunnysidePDF(company_name=company_name, author_name=author_name, logo_path=logo_path)
     
@@ -422,16 +606,89 @@ def generate_pv_report_pdf(
         "and evening curtailment. Cloud variability and seasonality effects are modeled using synthetic TMY data."
     )
     
+    if storage_results is not None and plt is not None:
+        pdf.add_page()
+        pdf.chapter_title("Storage & Self-Consumption Analysis", "🔋")
+
+        # Energy flow summary metrics
+        sc = storage_results
+        pdf.set_font(pdf.ufont_bold, '', 11)
+        pdf.set_text_color(30, 30, 30)
+        pdf.cell(0, 8, 'System Metrics', 0, 1)
+
+        pdf.info_row('Self-Consumption Ratio', f"{sc.get('self_consumption_ratio', 0) * 100:.1f}", "%")
+        pdf.info_row('Self-Sufficiency',      f"{sc.get('self_sufficiency_ratio', 0) * 100:.1f}", "%")
+        pdf.info_row('Annual Savings (IDR)',  f"Rp {sc.get('annual_savings_idr', 0):,.0f}")
+        pdf.info_row('Battery Payback',       f"{sc.get('payback_years', 0):.1f}", "years")
+
+        pdf.ln(4)
+        pdf.set_font(pdf.ufont_bold, '', 11)
+        pdf.set_text_color(30, 30, 30)
+        pdf.cell(0, 8, 'Energy Flow Annual Summary', 0, 1)
+
+        pdf.info_row('Solar Generation',     f"{sc.get('total_solar_kwh', 0):,.0f}", "kWh")
+        pdf.info_row('Load Consumption',     f"{sc.get('total_load_kwh', 0):,.0f}", "kWh")
+        pdf.info_row('Battery Charge In',    f"{sc.get('total_battery_charge_kwh', 0):,.0f}", "kWh")
+        pdf.info_row('Battery Discharge',    f"{sc.get('total_battery_discharge_kwh', 0):,.0f}", "kWh")
+        pdf.info_row('Grid Import',          f"{sc.get('total_grid_import_kwh', 0):,.0f}", "kWh")
+        pdf.info_row('Grid Export',          f"{sc.get('total_grid_export_kwh', 0):,.0f}", "kWh")
+        pdf.info_row('Bill w/o PV',          f"Rp {sc.get('total_bill_without_pv_idr', 0):,.0f}")
+        pdf.info_row('Bill with PV',         f"Rp {sc.get('total_bill_with_pv_idr', 0):,.0f}")
+
+        # Storage charts
+        storage_charts = []
+        flow_week_path = create_storage_flow_week_chart(sc)
+        if flow_week_path:
+            storage_charts.append(flow_week_path)
+            pdf.image(flow_week_path, x=15, y=pdf.get_y(), w=180)
+            pdf.ln(105)
+
+        soc_path = create_battery_soc_chart(sc)
+        if soc_path:
+            storage_charts.append(soc_path)
+            pdf.image(soc_path, x=15, y=pdf.get_y(), w=180)
+            pdf.ln(90)
+
+        pdf.add_page()
+        pdf.chapter_title("Financial Impact", "📊")
+
+        fin_path = create_financial_comparison_chart(sc)
+        if fin_path:
+            storage_charts.append(fin_path)
+            pdf.image(fin_path, x=15, y=pdf.get_y(), w=180)
+            pdf.ln(100)
+
+        monthly_flow_path = create_monthly_flow_chart(sc)
+        if monthly_flow_path:
+            storage_charts.append(monthly_flow_path)
+            pdf.image(monthly_flow_path, x=15, y=pdf.get_y(), w=180)
+            pdf.ln(105)
+
+        # Agent insights
+        rec = sc.get('agent_recommendation', {})
+        insight = rec.get('insight', '') if isinstance(rec, dict) else ''
+        if insight:
+            pdf.set_font(pdf.ufont_bold, '', 11)
+            pdf.set_text_color(139, 92, 246)
+            pdf.cell(0, 8, 'Battery Agent Recommendation', 0, 1)
+            pdf.set_font(pdf.ufont, '', 10)
+            pdf.set_text_color(80, 80, 80)
+            pdf.multi_cell(0, 6, str(insight))
+            pdf.ln(4)
+    else:
+        storage_charts = []
+
     # Save
     pdf.output(output_path)
-    
+
     # Cleanup temp files
-    try:
-        os.remove(monthly_chart_path)
-        os.remove(hourly_chart_path)
-    except Exception:
-        pass
-    
+    for tmp_path in [monthly_chart_path, hourly_chart_path] + storage_charts:
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
     return output_path
 
 

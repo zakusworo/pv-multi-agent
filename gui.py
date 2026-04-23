@@ -794,6 +794,7 @@ def main():
     f4.metric("LCOE", f"${results['lcoe']:.3f}/kWh")
 
     # ====== STORAGE & SELF-CONSUMPTION SECTION ======
+    stor = None  # Storage results dict for PDF report
     if enable_storage and STORAGE_AVAILABLE:
         st.markdown("---")
         st.subheader("🔋 Self-Consumption Optimizer (PLN Net Metering)")
@@ -866,6 +867,7 @@ def main():
                 st.error(f"Storage simulation failed: {e}")
                 import traceback
                 st.code(traceback.format_exc())
+                stor = None
 
     # Reports section
     st.markdown("---")
@@ -886,6 +888,7 @@ def main():
                             specs=specs,
                             results=results,
                             solar=solar,
+                            storage_results=stor,
                             company_name=pdf_company,
                             author_name=pdf_author,
                             logo_path=logo_path,
