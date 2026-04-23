@@ -34,13 +34,37 @@ class SunnysidePDF(FPDF):
         self.ufont = "DejaVuSans"
         self.ufont_bold = "DejaVuSans-Bold"
         self.ufont_italic = "DejaVuSans-Oblique"
-        # Register DejaVu fonts from system
+        # Register fonts with fallback logic
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            self.add_font(self.ufont, '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', uni=True)
-            self.add_font(self.ufont_bold, '', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', uni=True)
-            self.add_font(self.ufont_italic, '', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf', uni=True)
+            # Find DejaVu font files dynamically
+            _FONT_DIRS = [
+                '/usr/share/fonts/truetype/dejavu',
+                '/usr/share/fonts/TTF',
+                '/usr/share/fonts/truetype',
+                '/usr/local/share/fonts',
+            ]
+
+            def find_font(name):
+                for d in _FONT_DIRS:
+                    path = os.path.join(d, name)
+                    if os.path.exists(path):
+                        return path
+                return None
+
+            def add_font_fallback(alias, preferred, fallback):
+                """Try preferred font file, fall back to fallback if missing."""
+                path = find_font(preferred)
+                if not path:
+                    path = find_font(fallback)
+                if path:
+                    self.add_font(alias, '', path, uni=True)
+                # If no font found, FPdf defaults to Helvetica
+
+            add_font_fallback(self.ufont, 'DejaVuSans.ttf', 'DejaVuSans.ttf')
+            add_font_fallback(self.ufont_bold, 'DejaVuSans-Bold.ttf', 'DejaVuSans-Bold.ttf')
+            add_font_fallback(self.ufont_italic, 'DejaVuSans-Oblique.ttf', 'DejaVuSansMono-Oblique.ttf')
 
     def header(self):
         # Gradient-like header bar
