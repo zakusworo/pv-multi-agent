@@ -320,5 +320,5 @@ MIT License — Open for research and commercial use. Attribution required for a
 
 **Built with:** Python · PVlib · Streamlit · Ollama · OpenRouter · fpdf2 · Multi-Agent Architecture
 
-**Author:** Zulfikar Aji Kusworo | Politeknik Energi dan Pertambangan Bandung, Indonesia  
+**Author:** Zulfikar Aji Kusworo
 **Contact:** greataji13@gmail.com
