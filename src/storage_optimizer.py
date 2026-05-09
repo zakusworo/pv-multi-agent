@@ -193,13 +193,10 @@ def self_consumption_optimizer(
     sc_ratio = (total_self / total_solar) if total_solar > 0 else 0.0
     ss_ratio = (total_self / total_load) if total_load > 0 else 0.0
 
-    # Financials
+    # Financials (input series is assumed to span a full year)
     tariff = get_tariff(tariff_code)
-    months = 12
-    # Without PV: just load
-    bill_without_pv = calculate_bill_components(total_load, 0.0, tariff)["net_bill_idr"] * (months / 12)
-    # With PV: import/export
-    bill_with_pv = calculate_bill_components(total_import, total_export, tariff)["net_bill_idr"] * (months / 12)
+    bill_without_pv = calculate_bill_components(total_load, 0.0, tariff)["net_bill_idr"]
+    bill_with_pv = calculate_bill_components(total_import, total_export, tariff)["net_bill_idr"]
     savings = bill_without_pv - bill_with_pv
 
     # Simple payback: only battery cost (PV cost assumed sunk or separate)

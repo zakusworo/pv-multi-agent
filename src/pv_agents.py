@@ -473,8 +473,8 @@ class CalculationEngine:
             model='haydavies'
         )['poa_global']
         
-        # Simple PVWatts DC power
-        temp_cell = weather.temp_air + poa_global * 0.02
+        # Simple PVWatts DC power (open-rack NOCT-style coefficient ~0.035 °C per W/m^2)
+        temp_cell = weather.temp_air + poa_global * 0.035
         actual_capacity = design['system_summary']['actual_capacity_kw']
         
         # DC power (account for temperature)
@@ -500,7 +500,10 @@ class CalculationEngine:
         # Performance metrics
         specific_yield = annual_kwh / actual_capacity
         capacity_factor = annual_kwh / (actual_capacity * 8760) * 100
-        pr = min(85, max(70, specific_yield / 12))  # Estimate
+        # PVsyst-style PR: AC energy normalised by ideal yield from in-plane irradiance at STC.
+        poa_kwh_per_m2 = poa_global.fillna(0).sum() / 1000.0
+        pr_denominator = poa_kwh_per_m2 * actual_capacity
+        pr = (annual_kwh / pr_denominator * 100) if pr_denominator > 0 else 0.0
         
         result = SimulationResult()
         result.hourly_output = hourly_ac

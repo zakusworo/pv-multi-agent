@@ -461,28 +461,31 @@ class CalculationEngine:
             model='haydavies'
         )['poa_global']
         
-        temp_cell = weather.temp_air + poa_global * 0.02
+        temp_cell = weather.temp_air + poa_global * 0.035
         actual_capacity = design['system_summary']['actual_capacity_kw']
-        
+
         gamma = module_params.get('gamma_pdc', -0.003)
         dc_power = actual_capacity * (poa_global / 1000) * (1 + gamma * (temp_cell - 25))
         dc_power = dc_power.clip(lower=0)
-        
+
         ac_power = (dc_power * specs.inverter_efficiency).clip(
             upper=design['inverter_specifications']['pac0'] / 1000
         )
-        
+
         hourly_ac = ac_power.fillna(0)
         annual_kwh = hourly_ac.sum()
-        
+
         monthly = {}
         for month_idx, month_name in enumerate(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                                                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], 1):
             monthly[month_name] = hourly_ac[hourly_ac.index.month == month_idx].sum()
-        
+
         specific_yield = annual_kwh / actual_capacity if actual_capacity > 0 else 0
         capacity_factor = annual_kwh / (actual_capacity * 8760) * 100 if actual_capacity > 0 else 0
-        performance_ratio = min(85, max(70, capacity_factor * 1.2))
+        # PVsyst-style PR: AC energy normalised by ideal yield from in-plane irradiance at STC.
+        poa_kwh_per_m2 = poa_global.fillna(0).sum() / 1000.0
+        pr_denominator = poa_kwh_per_m2 * actual_capacity
+        performance_ratio = (annual_kwh / pr_denominator * 100) if pr_denominator > 0 else 0.0
         
         return SimulationResult(
             annual_energy_kwh=annual_kwh,

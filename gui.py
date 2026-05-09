@@ -256,8 +256,8 @@ def simulate_pv_system(specs: Dict, weather: pd.DataFrame) -> Dict:
     num_modules = int(np.ceil(system_capacity_kw * 1000 / module_power))
     actual_capacity_kw = num_modules * module_power / 1000
     
-    # Cell temperature
-    temp_cell = weather['temp_air'] + poa_global * 0.02
+    # Cell temperature (open-rack NOCT-style: ~0.035 °C per W/m^2)
+    temp_cell = weather['temp_air'] + poa_global * 0.035
     
     # DC power
     dc_power = actual_capacity_kw * (poa_global / 1000) * (1 + gamma_pdc * (temp_cell - 25))
@@ -282,7 +282,10 @@ def simulate_pv_system(specs: Dict, weather: pd.DataFrame) -> Dict:
     # Performance metrics
     specific_yield = annual_kwh / actual_capacity_kw if actual_capacity_kw > 0 else 0
     capacity_factor = annual_kwh / (actual_capacity_kw * 8760) * 100 if actual_capacity_kw > 0 else 0
-    performance_ratio = min(85, max(70, capacity_factor * 1.2))
+    # PVsyst-style PR: AC energy normalised by ideal yield from in-plane irradiance at STC.
+    poa_kwh_per_m2 = poa_global.fillna(0).sum() / 1000.0
+    pr_denominator = poa_kwh_per_m2 * actual_capacity_kw
+    performance_ratio = (annual_kwh / pr_denominator * 100) if pr_denominator > 0 else 0.0
     
     # Financial
     cost_per_watt = specs.get('cost_per_watt', 2.50)
@@ -500,10 +503,11 @@ def main():
                 manufacturers = sorted(list(set(m['manufacturer'] for m in dynamic_modules)))
                 
                 # Manufacturer selection
+                default_idx = manufacturers.index("LONGi Solar") if "LONGi Solar" in manufacturers else 0
                 selected_manufacturer = st.selectbox(
                     "Manufacturer",
                     manufacturers,
-                    index=min(5, len(manufacturers) - 1)  # Default to 6th manufacturer
+                    index=default_idx
                 )
                 
                 # Get models for selected manufacturer
@@ -694,7 +698,7 @@ def main():
             'module_type': module_type,
             'module_power': module_power,
             'module_efficiency': module_efficiency,
-            'gamma_pdc': -0.0035 if use_database else -0.0035,  # Could be from database
+            'gamma_pdc': gamma_pdc,
             'tilt': tilt,
             'azimuth': azimuth,
             'inverter_efficiency': 0.96,
