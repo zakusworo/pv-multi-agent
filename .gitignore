@@ -44,7 +44,7 @@ Thumbs.db
 htmlcov/
 *.db
 *.sqlite3
-test_*.py
+/test_*.py
 
 # Temporary files
 *.pdf

@@ -1,0 +1,57 @@
+{
+  "_meta": {
+    "description": "Reference annual yield data for validation tests. Values are rough mid-points from NREL PVWatts (https://pvwatts.nrel.gov) for fixed-tilt systems with default losses (~14%) on the synthetic-TMY weather model. Tolerance is wide (~20%) because this project's loss model is currently incomplete and uses synthetic GHI; tighten after Initiative 1 (loss model) and Initiative 2 (real weather) land.",
+    "pvwatts_default_loss_pct": 14.0,
+    "tolerance_pct": 20.0
+  },
+  "sites": [
+    {
+      "name": "Bandung",
+      "country": "Indonesia",
+      "latitude": -6.9,
+      "longitude": 107.6,
+      "altitude_m": 768,
+      "timezone": "Asia/Jakarta",
+      "tilt_deg": 7.0,
+      "azimuth_deg": 0,
+      "expected_yield_kwh_per_kwp": 1300,
+      "source": "PVWatts (lat/lon, fixed tilt = latitude, default losses)"
+    },
+    {
+      "name": "Yogyakarta",
+      "country": "Indonesia",
+      "latitude": -7.8,
+      "longitude": 110.4,
+      "altitude_m": 113,
+      "timezone": "Asia/Jakarta",
+      "tilt_deg": 8.0,
+      "azimuth_deg": 0,
+      "expected_yield_kwh_per_kwp": 1320,
+      "source": "PVWatts"
+    },
+    {
+      "name": "Surabaya",
+      "country": "Indonesia",
+      "latitude": -7.25,
+      "longitude": 112.75,
+      "altitude_m": 5,
+      "timezone": "Asia/Jakarta",
+      "tilt_deg": 7.0,
+      "azimuth_deg": 0,
+      "expected_yield_kwh_per_kwp": 1350,
+      "source": "PVWatts"
+    },
+    {
+      "name": "Phoenix",
+      "country": "USA",
+      "latitude": 33.45,
+      "longitude": -112.07,
+      "altitude_m": 331,
+      "timezone": "America/Phoenix",
+      "tilt_deg": 33.0,
+      "azimuth_deg": 180,
+      "expected_yield_kwh_per_kwp": 1850,
+      "source": "PVWatts (Phoenix Sky Harbor TMY3)"
+    }
+  ]
+}
