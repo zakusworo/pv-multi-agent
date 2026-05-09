@@ -7,6 +7,7 @@
   <img src="https://img.shields.io/badge/python-3.12+-blue.svg">
   <img src="https://img.shields.io/badge/pvlib-0.15.0-green.svg">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <a href="https://github.com/zakusworo/pv-multi-agent/actions/workflows/test.yml"><img src="https://github.com/zakusworo/pv-multi-agent/actions/workflows/test.yml/badge.svg"></a>
   <a href="https://zenodo.org/records/19650332"><img src="https://img.shields.io/badge/DOI-10.5281/zenodo.19650332-blue"></a>
 </p>
 
