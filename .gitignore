@@ -65,3 +65,6 @@ requirements-dev.lock
 
 # Logs
 *.log
+
+# Cached weather data (re-fetchable from Open-Meteo)
+data/weather_cache/

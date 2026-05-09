@@ -36,6 +36,9 @@ from pv_module_database import (
 # Canonical simulation engine
 from simulation import simulate_pv_system, LossModel
 
+# Real-weather provider (Open-Meteo) with synthetic fallback
+from weather_provider import fetch_weather_or_fallback
+
 # Dynamic module fetcher (fetches from live sources)
 try:
     from module_fetcher import fetch_all_modules, get_module_statistics
@@ -391,7 +394,22 @@ def main():
             index=0
         )
         altitude = st.number_input("Altitude (m)", value=768, step=10)
-        
+
+        st.subheader("Weather data")
+        weather_source = st.radio(
+            "Source",
+            ["Open-Meteo (real)", "Synthetic TMY"],
+            index=0,
+            help="Real weather is fetched from Open-Meteo's free archive API "
+                 "and cached locally. Synthetic TMY is generated from a simple "
+                 "clear-sky model.",
+        )
+        weather_year = st.number_input(
+            "Reference year",
+            min_value=2000, max_value=2024, value=2023, step=1,
+            disabled=(weather_source != "Open-Meteo (real)"),
+        )
+
         st.header("⚙️ System Design")
         
         # Module selection from database
@@ -682,8 +700,18 @@ def main():
         
         # Run simulation
         with st.spinner("Running simulation..."):
-            weather = generate_synthetic_weather(specs)
+            if weather_source == "Open-Meteo (real)":
+                weather, weather_origin = fetch_weather_or_fallback(
+                    specs["latitude"], specs["longitude"],
+                    specs.get("timezone", "Asia/Jakarta"),
+                    int(weather_year),
+                    fallback=lambda: generate_synthetic_weather(specs),
+                )
+            else:
+                weather = generate_synthetic_weather(specs)
+                weather_origin = "synthetic"
             results = simulate_pv_system(specs, weather)
+        st.caption(f"Weather source: {weather_origin}")
         
         st.metric("Annual Production", f"{results['annual_kwh']:,.0f} kWh")
         st.metric("Specific Yield", f"{results['specific_yield']:,.0f} kWh/kWp")

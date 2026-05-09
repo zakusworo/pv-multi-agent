@@ -27,12 +27,14 @@ with open(REFERENCE_PATH) as f:
 TOLERANCE_PCT = _REFERENCES["_meta"]["tolerance_pct"]
 SITES = _REFERENCES["sites"]
 
-# Sites whose yield test is expected to fail until real weather data lands.
-# The synthetic TMY generator is tuned for tropical low-latitude sites and
-# underestimates clear-sky desert irradiance. Remove the entry once
-# Initiative 2 (Open-Meteo weather) is wired in.
+# Sites whose yield test is expected to fail with the synthetic-TMY weather.
+# These tests intentionally use the synthetic generator so CI stays hermetic
+# (no network calls). Real weather is available via src/weather_provider.py
+# in production runs but not exercised here. The synthetic generator is tuned
+# for tropical low-latitude sites and underestimates desert irradiance.
 YIELD_XFAIL = {
-    "Phoenix": "synthetic TMY underestimates desert irradiance; needs real weather (Initiative 2)",
+    "Phoenix": "synthetic TMY underestimates desert irradiance; "
+               "real weather (weather_provider) covers this in production",
 }
 
 
