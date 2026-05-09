@@ -33,6 +33,9 @@ from pv_module_database import (
     module_to_dict,
 )
 
+# Canonical simulation engine
+from simulation import simulate_pv_system, LossModel
+
 # Dynamic module fetcher (fetches from live sources)
 try:
     from module_fetcher import fetch_all_modules, get_module_statistics
@@ -216,101 +219,7 @@ def generate_synthetic_weather(specs: Dict, periods: int = 8760) -> pd.DataFrame
     return weather
 
 
-def simulate_pv_system(specs: Dict, weather: pd.DataFrame) -> Dict:
-    """Run PV system simulation"""
-    latitude = specs['latitude']
-    longitude = specs['longitude']
-    altitude = specs.get('altitude', 0)
-    timezone = specs.get('timezone', 'Asia/Jakarta')
-    tilt = specs.get('tilt', abs(latitude))
-    azimuth = specs.get('azimuth', 0)
-    system_capacity_kw = specs.get('system_capacity_kw', 10.0)
-    module_type = specs.get('module_type', 'standard_mono')
-    
-    # Create location
-    loc = location.Location(latitude, longitude, altitude=altitude, tz=timezone)
-    
-    # Solar position
-    solar_pos = loc.get_solarposition(weather.index)
-    
-    # Extra terrestrial irradiance
-    dni_extra = irradiance.get_extra_radiation(weather.index)
-    
-    # POA irradiance
-    poa_global = irradiance.get_total_irradiance(
-        tilt, azimuth,
-        solar_pos['zenith'], solar_pos['azimuth'],
-        weather['dni'].fillna(0),
-        weather['ghi'].fillna(0),
-        weather['dhi'].fillna(0),
-        dni_extra=dni_extra,
-        model='haydavies'
-    )['poa_global']
-    
-    # Module parameters - use from database or defaults
-    module_power = specs.get('module_power', 450)
-    module_efficiency = specs.get('module_efficiency', 21.0)
-    gamma_pdc = specs.get('gamma_pdc', -0.0035)  # Temperature coefficient
-    
-    # Calculate modules needed
-    num_modules = int(np.ceil(system_capacity_kw * 1000 / module_power))
-    actual_capacity_kw = num_modules * module_power / 1000
-    
-    # Cell temperature (open-rack NOCT-style: ~0.035 °C per W/m^2)
-    temp_cell = weather['temp_air'] + poa_global * 0.035
-    
-    # DC power
-    dc_power = actual_capacity_kw * (poa_global / 1000) * (1 + gamma_pdc * (temp_cell - 25))
-    dc_power = dc_power.clip(lower=0)
-    
-    # AC power (simple inverter model)
-    inverter_efficiency = specs.get('inverter_efficiency', 0.96)
-    ac_capacity_kw = specs.get('ac_capacity_kw', actual_capacity_kw * 0.9)
-    ac_power = (dc_power * inverter_efficiency).clip(upper=ac_capacity_kw)
-    
-    # Results
-    hourly_ac = ac_power.fillna(0)
-    annual_kwh = hourly_ac.sum()
-    
-    # Monthly breakdown
-    monthly = {}
-    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    for i, month_name in enumerate(month_names, 1):
-        monthly[month_name] = hourly_ac[hourly_ac.index.month == i].sum()
-    
-    # Performance metrics
-    specific_yield = annual_kwh / actual_capacity_kw if actual_capacity_kw > 0 else 0
-    capacity_factor = annual_kwh / (actual_capacity_kw * 8760) * 100 if actual_capacity_kw > 0 else 0
-    # PVsyst-style PR: AC energy normalised by ideal yield from in-plane irradiance at STC.
-    poa_kwh_per_m2 = poa_global.fillna(0).sum() / 1000.0
-    pr_denominator = poa_kwh_per_m2 * actual_capacity_kw
-    performance_ratio = (annual_kwh / pr_denominator * 100) if pr_denominator > 0 else 0.0
-    
-    # Financial
-    cost_per_watt = specs.get('cost_per_watt', 2.50)
-    electricity_rate = specs.get('electricity_rate', 0.13)
-    system_cost = actual_capacity_kw * 1000 * cost_per_watt
-    annual_savings = annual_kwh * electricity_rate
-    payback = system_cost / annual_savings if annual_savings > 0 else float('inf')
-    lcoe = system_cost / (annual_kwh * 25) if annual_kwh > 0 else float('inf')
-    
-    return {
-        'annual_kwh': annual_kwh,
-        'specific_yield': specific_yield,
-        'capacity_factor': capacity_factor,
-        'performance_ratio': performance_ratio,
-        'monthly_kwh': monthly,
-        'peak_power_kw': hourly_ac.max(),
-        'dc_capacity_kw': actual_capacity_kw,
-        'ac_capacity_kw': ac_capacity_kw,
-        'num_modules': num_modules,
-        'system_cost': system_cost,
-        'annual_savings': annual_savings,
-        'payback_years': payback,
-        'lcoe': lcoe,
-        'hourly_output': hourly_ac
-    }
+# `simulate_pv_system` is re-exported from `simulation` (imported above).
 
 
 def generate_report(specs: Dict, results: Dict, solar: Dict) -> str:

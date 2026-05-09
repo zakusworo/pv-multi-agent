@@ -433,85 +433,54 @@ class CalculationEngine:
     def __init__(self):
         self.name = "CalculationEngine"
     
-    def simulate_annual_production(self, 
-                                   specs: PVSystemSpecs, 
+    def simulate_annual_production(self,
+                                   specs: PVSystemSpecs,
                                    weather: WeatherData,
                                    design: Dict) -> SimulationResult:
-        """Run annual energy simulation using PVlib"""
+        """Run annual energy simulation using the canonical engine."""
         print(f"[{self.name}] Running annual simulation...")
-        
-        # Create location
-        loc = location.Location(
-            specs.latitude, specs.longitude,
-            altitude=specs.altitude, tz=specs.timezone
+
+        try:
+            from simulation import simulate_pv_system as _simulate
+        except ImportError:
+            from .simulation import simulate_pv_system as _simulate
+
+        weather_df = pd.DataFrame(
+            {
+                "ghi": weather.ghi,
+                "dni": weather.dni,
+                "dhi": weather.dhi,
+                "temp_air": weather.temp_air,
+                "wind_speed": getattr(weather, "wind_speed", 1.0),
+            },
+            index=weather.times,
         )
-        
-        # Use the same simplified approach as demo.py (proven to work)
-        # Get module parameters
+
         module_params = design['module_specifications']
-        
-        # Create location
-        loc = location.Location(
-            specs.latitude, specs.longitude,
-            altitude=specs.altitude, tz=specs.timezone
-        )
-        
-        # Calculate solar position and POA irradiance
-        from pvlib import irradiance
-        solar_pos = loc.get_solarposition(weather.times)
-        dni_extra = irradiance.get_extra_radiation(weather.times)
-        
-        poa_global = irradiance.get_total_irradiance(
-            specs.tilt,
-            specs.azimuth,
-            solar_pos['zenith'],
-            solar_pos['azimuth'],
-            weather.dni.fillna(0),
-            weather.ghi.fillna(0),
-            weather.dhi.fillna(0),
-            dni_extra=dni_extra,
-            model='haydavies'
-        )['poa_global']
-        
-        # Simple PVWatts DC power (open-rack NOCT-style coefficient ~0.035 °C per W/m^2)
-        temp_cell = weather.temp_air + poa_global * 0.035
         actual_capacity = design['system_summary']['actual_capacity_kw']
-        
-        # DC power (account for temperature)
-        gamma = module_params.get('gamma_pdc', -0.003)
-        dc_power = actual_capacity * (poa_global / 1000) * (1 + gamma * (temp_cell - 25))
-        dc_power = dc_power.clip(lower=0)
-        
-        # Simple inverter
-        ac_power = (dc_power * specs.inverter_efficiency).clip(
-            upper=design['inverter_specifications']['pac0'] / 1000
-        )
-        
-        # Results
-        hourly_ac = ac_power.fillna(0)
-        annual_kwh = hourly_ac.sum()
-        
-        # Monthly breakdown
-        monthly = {}
-        for month_idx, month_name in enumerate(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], 1):
-            monthly[month_name] = hourly_ac[hourly_ac.index.month == month_idx].sum()
-        
-        # Performance metrics
-        specific_yield = annual_kwh / actual_capacity
-        capacity_factor = annual_kwh / (actual_capacity * 8760) * 100
-        # PVsyst-style PR: AC energy normalised by ideal yield from in-plane irradiance at STC.
-        poa_kwh_per_m2 = poa_global.fillna(0).sum() / 1000.0
-        pr_denominator = poa_kwh_per_m2 * actual_capacity
-        pr = (annual_kwh / pr_denominator * 100) if pr_denominator > 0 else 0.0
-        
+        sim_specs = {
+            "latitude": specs.latitude,
+            "longitude": specs.longitude,
+            "altitude": specs.altitude,
+            "timezone": specs.timezone,
+            "tilt": specs.tilt,
+            "azimuth": specs.azimuth,
+            "system_capacity_kw": actual_capacity,
+            "module_power": module_params.get("pdc0", 450),
+            "gamma_pdc": module_params.get("gamma_pdc", -0.003),
+            "inverter_efficiency": specs.inverter_efficiency,
+            "ac_capacity_kw": design["inverter_specifications"]["pac0"] / 1000,
+        }
+
+        out = _simulate(sim_specs, weather_df)
+
         result = SimulationResult()
-        result.hourly_output = hourly_ac
-        result.annual_energy_kwh = annual_kwh
-        result.specific_yield_kwh_kwp = specific_yield
-        result.capacity_factor = capacity_factor
-        result.performance_ratio = pr
-        result.monthly_energy = monthly
+        result.hourly_output = out["hourly_output"]
+        result.annual_energy_kwh = out["annual_kwh"]
+        result.specific_yield_kwh_kwp = out["specific_yield"]
+        result.capacity_factor = out["capacity_factor"]
+        result.performance_ratio = out["performance_ratio"]
+        result.monthly_energy = out["monthly_kwh"]
         
         # Loss breakdown
         result.losses = {
