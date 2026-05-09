@@ -29,9 +29,13 @@
 | **Hybrid AI + Physics** | LLM reasoning + PVlib IEEE-standard calculations |
 | **Cloud LLM Support** | Local Ollama OR cloud providers (OpenRouter, OpenAI) |
 | **Dynamic Module Database** | Auto-fetches 154+ production modules from CEC database |
+| **Real Weather Data** | Open-Meteo archive integration with disk cache and offline synthetic fallback |
+| **Consolidated Simulation Engine** | Single `src/simulation.py` using pvlib SAPM cell-temperature, ASHRAE IAM, and Hay-Davies transposition |
+| **Auditable Loss Model** | Documented `LossModel` dataclass (soiling, mismatch, wiring, LID, nameplate, age) with a PVWatts-equivalent `realistic()` preset |
 | **Battery + PLN Net Metering** | Self-consumption optimizer with PLN tariff calculator |
 | **Professional PDF Reports** | 8-page PDF with charts: monthly production, storage flows, SoC, bill comparison |
 | **Hemisphere-Aware** | Automatic azimuth/tilt for southern hemisphere (0° North-facing) |
+| **Continuous Validation** | 36-test suite with PVWatts reference yields for 4 global sites + GitHub Actions CI |
 | **Validated Results** | Performance Ratio matches PVsyst (72.9% vs 72.8%) |
 | **Global Locations** | Pre-configured presets + custom coordinates |
 
@@ -106,6 +110,7 @@ pip install -e ".[dev]"
 - Select location (Bandung, Jakarta, Phoenix, Berlin, Bikaner, or custom)
 - Pick PV module from live CEC database (154+ modules, 14+ manufacturers)
 - Set system capacity, tilt, azimuth
+- **Choose weather source** — real data from Open-Meteo (free, cached locally) or synthetic TMY for offline use
 - **Enable Battery & PLN Net Metering** — calculate self-consumption ratio, bill savings, payback
 - **Generate AI Insights** — get LLM-powered recommendations
 - **Download PDF Report** — professional 5-8 page report with charts
@@ -143,6 +148,8 @@ pv-multi-agent/
 ├── LICENSE                         # MIT License
 │
 ├── src/                            # Core source code
+│   ├── simulation.py               # Canonical PV simulation engine + LossModel
+│   ├── weather_provider.py         # Open-Meteo real-weather provider with cache
 │   ├── pv_agents.py                # Multi-agent system (Ollama)
 │   ├── pv_agents_cloud.py          # Multi-agent system (cloud LLMs)
 │   ├── storage_engine.py           # Battery simulator (SoH, thermal)
@@ -154,7 +161,8 @@ pv-multi-agent/
 │   └── ...
 │
 ├── data/
-│   └── pv_module_database.py       # Static fallback module database
+│   ├── pv_module_database.py       # Static fallback module database
+│   └── weather_cache/              # On-disk Open-Meteo cache (gitignored)
 │
 ├── docs/
 │   ├── screenshots/                # GUI screenshots
@@ -166,8 +174,15 @@ pv-multi-agent/
 │   └── check_ollama.py             # Ollama setup verification
 │
 ├── reports/                        # Generated text reports
-└── tests/
-    └── test_core.py                # 20+ unit tests
+├── tests/
+│   ├── test_core.py                # Core simulation, battery, tariff tests
+│   ├── test_validation.py          # PVWatts reference-yield regression tests
+│   ├── test_weather_provider.py    # Open-Meteo provider (mocked HTTP)
+│   └── data/
+│       └── validation_references.json
+└── .github/
+    └── workflows/
+        └── test.yml                # GitHub Actions CI (pytest on push/PR)
 ```
 
 ---
@@ -209,22 +224,42 @@ The professional PDF report includes:
 ### Physics Engine (PVlib)
 
 ```python
-# Solar position (SPA algorithm)
-solar_pos = location.get_solarposition(times)
+from simulation import simulate_pv_system, LossModel
 
-# Plane of array irradiance (Hay-Davies transposition)
+# Plane-of-array irradiance — Hay-Davies sky-diffuse transposition
 poa = irradiance.get_total_irradiance(
-    surface_tilt, surface_azimuth,
-    solar_pos['zenith'], solar_pos['azimuth'],
-    dni, ghi, dhi,
-    model='haydavies'
+    tilt, azimuth, solar_pos['zenith'], solar_pos['azimuth'],
+    dni, ghi, dhi, model='haydavies',
 )
 
-# PVWatts DC model with temperature derating
-dc_power = pdc0 * (poa_global / 1000) * (1 + gamma * (t_cell - 25))
+# Optical loss — ASHRAE incidence-angle modifier on the beam component
+poa_eff = poa['poa_direct'] * iam.ashrae(aoi) + poa['poa_diffuse']
 
-# Inverter clipping
-ac_power = np.minimum(dc_power * eta_inv, pac0)
+# Cell temperature — pvlib SAPM open-rack glass-glass
+t_cell = temperature.sapm_cell(poa_eff, temp_air, wind_speed,
+                               **TEMPERATURE_MODEL_PARAMETERS['sapm']['open_rack_glass_glass'])
+
+# DC + system losses + inverter — single PVWatts-style equation
+dc = dc_capacity * (poa_eff / 1000) * (1 + gamma * (t_cell - 25)) * losses.total_derate()
+ac = (dc * eta_inv).clip(upper=ac_capacity)
+```
+
+### Loss Model
+
+```python
+from simulation import LossModel
+
+# Default — zero losses (physics-only baseline)
+losses = LossModel()
+
+# Or PVWatts-equivalent ~14% stack
+losses = LossModel.realistic()
+# soiling 2% + mismatch 2% + wiring 2% + connections 0.5%
+# + LID 1.5% + nameplate 1% = 9% (plus inverter 4% = ~13% net)
+
+# Pass to the simulation
+specs = {..., "losses": losses}
+results = simulate_pv_system(specs, weather)
 ```
 
 ### LLM Integration
@@ -249,12 +284,17 @@ response = llm.chat(messages, temperature=0.3)
 
 ## Validation
 
+**Reference comparison (PVsyst):**
+
 | Metric | PVsyst (Reference) | Sunnyside AI | Difference |
 |--------|-------------------|--------------|------------|
 | **Performance Ratio** | **72.8%** | **72.9%** | **+0.1%** |
 | GHI | 1911 kWh/m² | 1848 kWh/m² | −3.3% |
 
 Performance Ratio validated against PVsyst within 0.1 percentage point. See `docs/VALIDATION_REPORT.md` for full methodology.
+
+**Continuous regression suite (`tests/test_validation.py`):**
+parametrised yield/PR/capacity-factor checks against NREL PVWatts reference values for 4 sites (Bandung, Yogyakarta, Surabaya, Phoenix). 35 passing, 1 documented xfail (Phoenix yield with synthetic TMY — covered by real weather in production). Runs on every push via GitHub Actions.
 
 ---
 
@@ -291,7 +331,7 @@ See `docs/DEPLOYMENT.md` for Hugging Face Spaces, Railway, and other options.
 Areas open for contribution:
 
 - Seasonal tilt optimizer (variable tilt throughout the year)
-- NSRDB / Solargis weather API integration
+- Additional weather backends (NSRDB, Solargis) alongside the existing Open-Meteo provider
 - Shading analysis (LiDAR / 3D horizon import)
 - Real-time monitoring dashboard
 - Multi-language support (Bahasa Indonesia, Deutsch, Hindi)
